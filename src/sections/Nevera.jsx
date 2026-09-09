@@ -7,7 +7,10 @@ function n(v) {
 function fmtDate(d) {
   return d.toISOString().slice(0, 10)
 }
-function rango(periodo) {
+function ultimoDiaMes(anio, mes0) {
+  return new Date(anio, mes0 + 1, 0).getDate()
+}
+function rango(periodo, mes, anio) {
   const hoy = new Date()
   const hastaHoy = fmtDate(hoy)
   if (periodo === 'hoy') return { desde: hastaHoy, hasta: hastaHoy }
@@ -16,9 +19,19 @@ function rango(periodo) {
     hace7.setDate(hace7.getDate() - 6)
     return { desde: fmtDate(hace7), hasta: hastaHoy }
   }
-  const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1)
-  return { desde: fmtDate(inicioMes), hasta: hastaHoy }
+  if (periodo === 'anio') {
+    const esAnioActual = Number(anio) === hoy.getFullYear()
+    return { desde: `${anio}-01-01`, hasta: esAnioActual ? hastaHoy : `${anio}-12-31` }
+  }
+  // mes: viene como "YYYY-MM"
+  const [y, m] = mes.split('-').map(Number)
+  const esMesActual = y === hoy.getFullYear() && m - 1 === hoy.getMonth()
+  return { desde: `${mes}-01`, hasta: esMesActual ? hastaHoy : `${mes}-${String(ultimoDiaMes(y, m - 1)).padStart(2, '0')}` }
 }
+
+const hoyRefNevera = new Date()
+const MES_ACTUAL_NEVERA = `${hoyRefNevera.getFullYear()}-${String(hoyRefNevera.getMonth() + 1).padStart(2, '0')}`
+const ANIO_ACTUAL_NEVERA = String(hoyRefNevera.getFullYear())
 
 export default function Nevera({ perfil }) {
   const [productos, setProductos] = useState([])
@@ -34,6 +47,8 @@ export default function Nevera({ perfil }) {
   const [fCosto, setFCosto] = useState('')
 
   const [periodoHist, setPeriodoHist] = useState('mes')
+  const [mesHist, setMesHist] = useState(MES_ACTUAL_NEVERA)
+  const [anioHist, setAnioHist] = useState(ANIO_ACTUAL_NEVERA)
   const [dias, setDias] = useState([])
   const [topProductos, setTopProductos] = useState([])
 
@@ -53,10 +68,10 @@ export default function Nevera({ perfil }) {
 
   useEffect(() => {
     if (modo !== 'historial') return
-    const { desde, hasta } = rango(periodoHist)
+    const { desde, hasta } = rango(periodoHist, mesHist, anioHist)
     supabase.rpc('refrigerios_historial_dias', { p_desde: desde, p_hasta: hasta }).then(({ data }) => setDias(data || []))
     supabase.rpc('refrigerios_top_productos', { p_desde: desde, p_hasta: hasta }).then(({ data }) => setTopProductos(data || []))
-  }, [modo, periodoHist])
+  }, [modo, periodoHist, mesHist, anioHist])
 
   function tocar(id) {
     setCarrito((c) => ({ ...c, [id]: (c[id] || 0) + 1 }))
@@ -153,13 +168,24 @@ export default function Nevera({ perfil }) {
       {modo === 'historial' && (
         <section className="space-y-4">
           <div className="flex gap-1.5">
-            {[{ id: 'hoy', label: 'Hoy' }, { id: 'semana', label: '7 días' }, { id: 'mes', label: 'Mes' }].map((p) => (
+            {[{ id: 'hoy', label: 'Hoy' }, { id: 'semana', label: '7 días' }, { id: 'mes', label: 'Mes' }, { id: 'anio', label: 'Año' }].map((p) => (
               <button key={p.id} onClick={() => setPeriodoHist(p.id)}
                 className={'flex-1 py-1.5 rounded-full text-xs font-semibold border ' + (periodoHist === p.id ? 'bg-yellow text-ink border-yellow' : 'border-line text-muted')}>
                 {p.label}
               </button>
             ))}
           </div>
+
+          {periodoHist === 'mes' && (
+            <input type="month" value={mesHist} max={MES_ACTUAL_NEVERA} onChange={(e) => setMesHist(e.target.value)}
+              className="w-full rounded-xl border border-line px-4 py-2 text-sm outline-none focus:border-green" />
+          )}
+          {periodoHist === 'anio' && (
+            <select value={anioHist} onChange={(e) => setAnioHist(e.target.value)}
+              className="w-full rounded-xl border border-line px-4 py-2 text-sm outline-none focus:border-green bg-surface">
+              {Array.from({ length: 5 }, (_, i) => String(hoyRefNevera.getFullYear() - i)).map((a) => <option key={a} value={a}>{a}</option>)}
+            </select>
+          )}
 
           <div>
             <h3 className="font-display text-xs font-semibold uppercase tracking-wide text-green-strong mb-2">Por día</h3>

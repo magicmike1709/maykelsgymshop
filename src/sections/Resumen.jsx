@@ -9,7 +9,11 @@ function fmtDate(d) {
   return d.toISOString().slice(0, 10)
 }
 
-function rango(periodo) {
+function ultimoDiaMes(anio, mes0) {
+  return new Date(anio, mes0 + 1, 0).getDate()
+}
+
+function rango(periodo, mes, anio) {
   const hoy = new Date()
   const hastaHoy = fmtDate(hoy)
   if (periodo === 'hoy') return { desde: hastaHoy, hasta: hastaHoy }
@@ -23,20 +27,31 @@ function rango(periodo) {
     hace7.setDate(hace7.getDate() - 6)
     return { desde: fmtDate(hace7), hasta: hastaHoy }
   }
-  // mes
-  const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1)
-  return { desde: fmtDate(inicioMes), hasta: hastaHoy }
+  if (periodo === 'mes') {
+    // mes viene como "YYYY-MM"
+    const [y, m] = mes.split('-').map(Number)
+    const desde = `${mes}-01`
+    const esMesActual = y === hoy.getFullYear() && m - 1 === hoy.getMonth()
+    const hasta = esMesActual ? hastaHoy : `${mes}-${String(ultimoDiaMes(y, m - 1)).padStart(2, '0')}`
+    return { desde, hasta }
+  }
+  // año
+  const esAnioActual = Number(anio) === hoy.getFullYear()
+  return { desde: `${anio}-01-01`, hasta: esAnioActual ? hastaHoy : `${anio}-12-31` }
 }
 
 const PERIODOS = [
   { id: 'hoy', label: 'Hoy' },
   { id: 'ayer', label: 'Ayer' },
   { id: 'semana', label: '7 días' },
-  { id: 'mes', label: 'Mes' }
+  { id: 'mes', label: 'Mes' },
+  { id: 'anio', label: 'Año' }
 ]
 
-function textoWhatsapp(periodo, r) {
-  const etiqueta = PERIODOS.find((p) => p.id === periodo)?.label || periodo
+function textoWhatsapp(periodo, r, mes, anio) {
+  let etiqueta = PERIODOS.find((p) => p.id === periodo)?.label || periodo
+  if (periodo === 'mes') etiqueta = mes
+  if (periodo === 'anio') etiqueta = anio
   const lineas = [
     `🏋️ Maykel's Gym — ${etiqueta}`,
     `Matrículas: ${n(r.cup.matriculas)} CUP (${r.cup.matriculas_pagos} pagos)`,
@@ -68,14 +83,20 @@ function Grupo({ titulo, tono, children }) {
   )
 }
 
+const hoyRef = new Date()
+const MES_ACTUAL = `${hoyRef.getFullYear()}-${String(hoyRef.getMonth() + 1).padStart(2, '0')}`
+const ANIO_ACTUAL = String(hoyRef.getFullYear())
+
 export default function Resumen() {
   const [periodo, setPeriodo] = useState('mes')
+  const [mes, setMes] = useState(MES_ACTUAL)
+  const [anio, setAnio] = useState(ANIO_ACTUAL)
   const [r, setR] = useState(null)
   const [inv, setInv] = useState(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    const { desde, hasta } = rango(periodo)
+    const { desde, hasta } = rango(periodo, mes, anio)
     Promise.all([
       supabase.rpc('panel_resumen', { p_desde: desde, p_hasta: hasta }),
       supabase.rpc('inventario_resumen')
@@ -84,15 +105,17 @@ export default function Resumen() {
       else setR(res.data)
       setInv(invRes.data)
     })
-  }, [periodo])
+  }, [periodo, mes, anio])
 
   if (error) return <p className="text-sm text-muted">{error}</p>
   if (!r) return <p className="text-sm text-muted">Cargando…</p>
 
   function compartir() {
-    const url = 'https://wa.me/?text=' + encodeURIComponent(textoWhatsapp(periodo, r))
+    const url = 'https://wa.me/?text=' + encodeURIComponent(textoWhatsapp(periodo, r, mes, anio))
     window.open(url, '_blank')
   }
+
+  const anios = Array.from({ length: 5 }, (_, i) => String(hoyRef.getFullYear() - i))
 
   return (
     <div className="space-y-6 pb-4">
@@ -105,6 +128,17 @@ export default function Resumen() {
           </button>
         ))}
       </div>
+
+      {periodo === 'mes' && (
+        <input type="month" value={mes} max={MES_ACTUAL} onChange={(e) => setMes(e.target.value)}
+          className="w-full rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-green" />
+      )}
+      {periodo === 'anio' && (
+        <select value={anio} onChange={(e) => setAnio(e.target.value)}
+          className="w-full rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-green bg-surface">
+          {anios.map((a) => <option key={a} value={a}>{a}</option>)}
+        </select>
+      )}
 
       <button onClick={compartir}
         className="w-full rounded-xl border border-green text-green-strong font-semibold py-2.5 text-sm flex items-center justify-center gap-2">
