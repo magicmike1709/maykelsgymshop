@@ -17,7 +17,7 @@ export default function Catalogo() {
 
   return (
     <div className="min-h-screen pb-10">
-      <header className="border-b-[3px] border-green px-5 pt-8 pb-5 text-center">
+      <header className="border-b border-line bg-bg/85 backdrop-blur-md sticky top-0 z-20 px-5 pt-8 pb-5 text-center">
         <div className="text-xs font-bold tracking-widest uppercase text-green-strong flex items-center justify-center gap-2 mb-1">
           <span className="w-1.5 h-1.5 rounded-full bg-yellow" />
           Maykelsgym Shop
@@ -34,7 +34,7 @@ export default function Catalogo() {
             <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-green-strong mb-2">{cat}</h2>
             <div className="grid grid-cols-2 gap-3">
               {items.map((p, i) => (
-                <div key={i} className="rounded-xl border border-line bg-surface overflow-hidden shadow-sm">
+                <div key={i} className="rounded-2xl border border-line bg-surface overflow-hidden shadow">
                   {p.foto_url
                     ? <img src={p.foto_url} alt={p.nombre} className="w-full h-28 object-cover" />
                     : <div className="w-full h-28 bg-sunken" />}

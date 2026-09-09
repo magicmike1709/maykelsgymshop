@@ -32,7 +32,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-5 py-10">
-      <div className="w-full max-w-sm">
+      <div className="w-full max-w-sm rounded-3xl bg-surface shadow-lg border border-line px-6 py-8">
         <div className="mb-8 text-center">
           <div className="inline-flex items-center gap-2 text-xs font-bold tracking-widest uppercase text-green-strong mb-2">
             <span className="w-1.5 h-1.5 rounded-full bg-yellow" />

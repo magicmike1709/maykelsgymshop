@@ -54,7 +54,7 @@ export default function Panel() {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b-[3px] border-green px-5 pt-6 pb-4">
+      <header className="sticky top-0 z-30 bg-bg/85 backdrop-blur-md border-b border-line px-5 pt-6 pb-4">
         <div className="text-xs font-bold tracking-widest uppercase text-green-strong flex items-center gap-2 mb-1">
           <span className="w-1.5 h-1.5 rounded-full bg-yellow" />
           {perfil?.rol_nombre || '…'}
@@ -100,40 +100,41 @@ export default function Panel() {
         )}
       </main>
 
-      {menuAbierto && (
-        <div className="fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setMenuAbierto(false)} />
-          <nav className="absolute inset-y-0 left-0 w-72 max-w-[80vw] bg-surface shadow-lg flex flex-col">
-            <div className="border-b-[3px] border-green px-5 pt-6 pb-4">
-              <div className="text-xs font-bold tracking-widest uppercase text-green-strong flex items-center gap-2 mb-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-yellow" />
-                Maykelsgym Shop
-              </div>
-              <div className="text-sm text-muted">{perfil?.rol_nombre}</div>
+      <div className={'fixed inset-0 z-50 transition-opacity duration-300 ease-ios ' + (menuAbierto ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none')}>
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px]" onClick={() => setMenuAbierto(false)} />
+        <nav className={
+          'absolute inset-y-0 left-0 w-72 max-w-[80vw] bg-surface shadow-lg flex flex-col rounded-r-3xl overflow-hidden transition-transform duration-300 ease-ios ' +
+          (menuAbierto ? 'translate-x-0' : '-translate-x-full')
+        }>
+          <div className="px-5 pt-6 pb-4">
+            <div className="text-xs font-bold tracking-widest uppercase text-green-strong flex items-center gap-2 mb-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-yellow" />
+              Maykelsgym Shop
             </div>
-            <div className="flex-1 overflow-y-auto py-2">
-              {tabs.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => elegir(t.id)}
-                  className={
-                    'w-full text-left px-5 py-3 text-sm font-semibold ' +
-                    (tab === t.id ? 'text-green-strong bg-green-soft border-r-[3px] border-green' : 'text-ink')
-                  }
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={() => supabase.auth.signOut()}
-              className="px-5 py-4 text-left text-sm font-semibold text-red border-t border-line"
-            >
-              Salir
-            </button>
-          </nav>
-        </div>
-      )}
+            <div className="text-sm text-muted">{perfil?.rol_nombre}</div>
+          </div>
+          <div className="flex-1 overflow-y-auto py-2 px-2">
+            {tabs.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => elegir(t.id)}
+                className={
+                  'w-full text-left px-4 py-3 my-0.5 rounded-xl text-sm font-semibold ' +
+                  (tab === t.id ? 'text-white bg-green' : 'text-ink active:bg-sunken')
+                }
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => supabase.auth.signOut()}
+            className="mx-2 mb-2 px-4 py-3 text-left text-sm font-semibold text-red rounded-xl active:bg-red-soft"
+          >
+            Salir
+          </button>
+        </nav>
+      </div>
     </div>
   )
 }
