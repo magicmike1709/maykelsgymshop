@@ -26,7 +26,18 @@ export default function Inventario({ perfil }) {
   const [eProveedor, setEProveedor] = useState('')
   const [eMensaje, setEMensaje] = useState('')
 
+  const [dormida, setDormida] = useState(null)
+  const [dormidaAbierta, setDormidaAbierta] = useState(false)
+
   const puedeEditar = perfil?.rol === 'admin' || perfil?.rol === 'operador_plus'
+  const enlaceCatalogo = window.location.origin + '/catalogo'
+
+  async function cargarDormida() {
+    if (dormida) { setDormidaAbierta((v) => !v); return }
+    const { data } = await supabase.rpc('plata_dormida')
+    setDormida(data || [])
+    setDormidaAbierta(true)
+  }
 
   async function cargar() {
     const [inv, alm, prod] = await Promise.all([
@@ -117,6 +128,43 @@ export default function Inventario({ perfil }) {
           </div>
         </div>
       )}
+
+      <section className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-green-strong">Catálogo para WhatsApp</h2>
+            <p className="text-xs text-muted mt-0.5">Comparte este enlace — se ve sin necesidad de entrar a la app.</p>
+          </div>
+        </div>
+        <div className="mt-2 rounded-lg bg-sunken px-3 py-2 text-xs font-mono break-all text-muted">{enlaceCatalogo}</div>
+      </section>
+
+      <section className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
+        <button onClick={cargarDormida} className="w-full flex items-center justify-between text-left">
+          <div>
+            <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-yellow">Plata dormida</h2>
+            <p className="text-xs text-muted mt-0.5">Productos con mucho tiempo sin venderse</p>
+          </div>
+          <span className="text-xs text-muted">{dormidaAbierta ? '−' : '+'}</span>
+        </button>
+        {dormidaAbierta && dormida && (
+          <div className="mt-3 pt-3 border-t border-line space-y-2">
+            {dormida.slice(0, 15).map((d) => (
+              <div key={d.producto_id} className="flex items-center gap-2.5">
+                {d.foto_url
+                  ? <img src={d.foto_url} alt="" className="w-8 h-8 rounded-lg object-cover border border-line flex-shrink-0" />
+                  : <div className="w-8 h-8 rounded-lg bg-sunken flex-shrink-0" />}
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-semibold truncate">{d.nombre}</div>
+                  <div className="text-[11px] text-muted">{d.dias_sin_vender} días sin venderse · {d.stock} en stock</div>
+                </div>
+                <span className="text-xs font-bold tabular-nums text-blue">${Number(d.invertido).toFixed(0)}</span>
+              </div>
+            ))}
+            {dormida.length === 0 && <p className="text-xs text-muted">Todo se está vendiendo bien.</p>}
+          </div>
+        )}
+      </section>
 
       {puedeEditar && (
         <section className="rounded-2xl border border-line bg-surface p-4 shadow-sm">

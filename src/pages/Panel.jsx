@@ -8,6 +8,8 @@ import Inventario from '../sections/Inventario'
 import Gastos from '../sections/Gastos'
 import Equipo from '../sections/Equipo'
 import Cierre from '../sections/Cierre'
+import Avisos from '../sections/Avisos'
+import Actividad from '../sections/Actividad'
 
 const TABS_BASE = [
   { id: 'resumen', label: 'Resumen' },
@@ -15,12 +17,14 @@ const TABS_BASE = [
   { id: 'nevera', label: 'Nevera' },
   { id: 'vitrina', label: 'Vitrina' },
   { id: 'inventario', label: 'Inventario' },
-  { id: 'gastos', label: 'Gastos' }
+  { id: 'gastos', label: 'Gastos' },
+  { id: 'avisos', label: 'Avisos' }
 ]
 
 const TABS_ADMIN = [
   { id: 'equipo', label: 'Equipo' },
-  { id: 'cierre', label: 'Cierre' }
+  { id: 'cierre', label: 'Cierre' },
+  { id: 'actividad', label: 'Actividad' }
 ]
 
 export default function Panel() {
@@ -76,8 +80,10 @@ export default function Panel() {
         {perfil && tab === 'vitrina' && <Vitrina />}
         {perfil && tab === 'inventario' && <Inventario perfil={perfil} />}
         {perfil && tab === 'gastos' && <Gastos perfil={perfil} />}
+        {perfil && tab === 'avisos' && <Avisos perfil={perfil} />}
         {perfil && tab === 'equipo' && perfil.rol === 'admin' && <Equipo />}
         {perfil && tab === 'cierre' && perfil.rol === 'admin' && <Cierre />}
+        {perfil && tab === 'actividad' && perfil.rol === 'admin' && <Actividad />}
       </main>
 
       {menuAbierto && (
