@@ -40,7 +40,7 @@ export default function Nevera({ perfil }) {
   const [mensaje, setMensaje] = useState('')
   const [guardando, setGuardando] = useState(false)
 
-  const [modo, setModo] = useState('cobrar') // cobrar | gestionar | historial
+  const [modo, setModo] = useState('historial') // cobrar | gestionar | historial
   const [editId, setEditId] = useState(null) // null = form cerrado, 'nuevo' = crear, id = editar ese
   const [fNombre, setFNombre] = useState('')
   const [fPrecio, setFPrecio] = useState('')
@@ -149,13 +149,13 @@ export default function Nevera({ perfil }) {
       </div>
 
       <div className="flex gap-1.5">
-        <button onClick={() => setModo('cobrar')}
-          className={'flex-1 py-2 rounded-full text-xs font-semibold border ' + (modo === 'cobrar' ? 'bg-green text-white border-green' : 'border-line text-muted')}>
-          Cobrar
-        </button>
         <button onClick={() => setModo('historial')}
           className={'flex-1 py-2 rounded-full text-xs font-semibold border ' + (modo === 'historial' ? 'bg-green text-white border-green' : 'border-line text-muted')}>
           Historial
+        </button>
+        <button onClick={() => setModo('cobrar')}
+          className={'flex-1 py-2 rounded-full text-xs font-semibold border ' + (modo === 'cobrar' ? 'bg-green text-white border-green' : 'border-line text-muted')}>
+          Fuera del gym
         </button>
         {puedeEditar && (
           <button onClick={() => setModo('gestionar')}
@@ -217,6 +217,9 @@ export default function Nevera({ perfil }) {
 
       {modo !== 'historial' && (
       <section>
+        {modo === 'cobrar' && (
+          <p className="text-xs text-muted mb-3">Para ventas que haces tú o un gestor fuera del gym. Lo que se vende dentro del gym se carga por foto/PDF del IPV en Historial.</p>
+        )}
         {productos.length === 0 && <p className="text-sm text-muted">Todavía no hay productos de nevera. Agrega el primero abajo.</p>}
 
         {!gestionando ? (

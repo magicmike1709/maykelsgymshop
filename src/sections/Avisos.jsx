@@ -28,6 +28,11 @@ export default function Avisos({ perfil }) {
     cargar()
   }
 
+  async function confirmar(id) {
+    await supabase.rpc('aviso_confirmar', { p_id: id })
+    cargar()
+  }
+
   return (
     <div className="space-y-5 pb-4">
       {puedeCrear && (
@@ -50,17 +55,35 @@ export default function Avisos({ perfil }) {
       )}
 
       <div className="space-y-2">
-        {avisos.map((a) => (
-          <div key={a.id} className="rounded-xl border border-line bg-yellow-soft px-4 py-3 flex items-start justify-between gap-3">
-            <div>
-              <div className="text-sm font-semibold">{a.titulo}</div>
-              {a.mensaje && <div className="text-xs text-muted mt-0.5">{a.mensaje}</div>}
+        {avisos.map((a) => {
+          const yoConfirme = (a.confirmaciones || []).some((c) => c.usuario_id === perfil?.id)
+          return (
+            <div key={a.id} className="rounded-xl border border-line bg-yellow-soft px-4 py-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold">{a.titulo}</div>
+                  {a.mensaje && <div className="text-xs text-muted mt-0.5">{a.mensaje}</div>}
+                </div>
+                <button onClick={() => resolver(a.id)} className="text-xs font-semibold text-white bg-green rounded-full px-3 py-1.5 flex-shrink-0">
+                  Resuelto
+                </button>
+              </div>
+              <div className="mt-2 pt-2 border-t border-line/60 flex items-center justify-between gap-2">
+                <div className="flex flex-wrap gap-1">
+                  {(a.confirmaciones || []).map((c) => (
+                    <span key={c.usuario_id} className="text-[11px] font-semibold bg-green-soft text-green-strong rounded-full px-2 py-0.5">✓ {c.nombre}</span>
+                  ))}
+                  {(a.confirmaciones || []).length === 0 && <span className="text-[11px] text-muted">Nadie lo ha visto todavía</span>}
+                </div>
+                {!yoConfirme && (
+                  <button onClick={() => confirmar(a.id)} className="text-xs font-semibold text-yellow border border-yellow rounded-full px-3 py-1 flex-shrink-0">
+                    Ya lo vi
+                  </button>
+                )}
+              </div>
             </div>
-            <button onClick={() => resolver(a.id)} className="text-xs font-semibold text-white bg-green rounded-full px-3 py-1.5 flex-shrink-0">
-              Resuelto
-            </button>
-          </div>
-        ))}
+          )
+        })}
         {avisos.length === 0 && <p className="text-sm text-muted">Sin avisos pendientes.</p>}
       </div>
     </div>

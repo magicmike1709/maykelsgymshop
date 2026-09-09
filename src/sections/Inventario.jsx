@@ -17,6 +17,11 @@ export default function Inventario({ perfil }) {
   const [nStock, setNStock] = useState('')
   const [nFoto, setNFoto] = useState('')
   const [nGarantia, setNGarantia] = useState('')
+  const [nStockMinimo, setNStockMinimo] = useState('3')
+  const [nSocioId, setNSocioId] = useState('')
+  const [nPctGanancia, setNPctGanancia] = useState('')
+  const [nPctInversion, setNPctInversion] = useState('100')
+  const [socios, setSocios] = useState([])
 
   const [combos, setCombos] = useState([])
   const [comboAbierto, setComboAbierto] = useState(false)
@@ -48,16 +53,18 @@ export default function Inventario({ perfil }) {
   }
 
   async function cargar() {
-    const [inv, alm, prod, com] = await Promise.all([
+    const [inv, alm, prod, com, soc] = await Promise.all([
       supabase.rpc('inventario_resumen'),
       supabase.rpc('almacenes_lista'),
       supabase.rpc('productos_lista'),
-      supabase.rpc('combos_lista')
+      supabase.rpc('combos_lista'),
+      supabase.rpc('socios_lista')
     ])
     setResumen(inv.data)
     setAlmacenes(alm.data || [])
     setProductos(prod.data || [])
     setCombos(com.data || [])
+    setSocios(soc.data || [])
     if ((alm.data || []).length > 0 && !eAlmacenId) {
       const principal = alm.data.find((a) => a.es_principal) || alm.data[0]
       setEAlmacenId(principal.id)
@@ -96,10 +103,15 @@ export default function Inventario({ perfil }) {
     if (!nNombre || !nPrecio || !nCosto) return
     const { error } = await supabase.rpc('producto_guardar', {
       p_id: null, p_nombre: nNombre, p_precio: Number(nPrecio), p_costo: Number(nCosto),
-      p_stock: Number(nStock || 0), p_foto_url: nFoto || null, p_dias_garantia: Number(nGarantia || 0)
+      p_stock: Number(nStock || 0), p_foto_url: nFoto || null, p_dias_garantia: Number(nGarantia || 0),
+      p_stock_minimo: Number(nStockMinimo || 3),
+      p_socio_id: nSocioId || null,
+      p_pct_ganancia_socio: nSocioId ? Number(nPctGanancia || 0) / 100 : 0,
+      p_pct_inversion_socio: nSocioId ? Number(nPctInversion || 100) / 100 : 1
     })
     if (!error) {
-      setNNombre(''); setNPrecio(''); setNCosto(''); setNStock(''); setNFoto(''); setNGarantia(''); setNuevo(false)
+      setNNombre(''); setNPrecio(''); setNCosto(''); setNStock(''); setNFoto(''); setNGarantia('')
+      setNStockMinimo('3'); setNSocioId(''); setNPctGanancia(''); setNPctInversion('100'); setNuevo(false)
       cargar()
     }
   }
@@ -201,7 +213,12 @@ export default function Inventario({ perfil }) {
                   <div className="text-xs font-semibold truncate">{d.nombre}</div>
                   <div className="text-[11px] text-muted">{d.dias_sin_vender} días sin venderse · {d.stock} en stock</div>
                 </div>
-                <span className="text-xs font-bold tabular-nums text-blue">${Number(d.invertido).toFixed(0)}</span>
+                <span className="text-xs font-bold tabular-nums text-blue">
+                  ${Number(d.invertido).toFixed(0)}
+                  {Number(d.invertido_dueno) !== Number(d.invertido) && (
+                    <span className="block text-[10px] text-muted font-normal">tuyo: ${Number(d.invertido_dueno).toFixed(0)}</span>
+                  )}
+                </span>
               </div>
             ))}
             {dormida.length === 0 && <p className="text-xs text-muted">Todo se está vendiendo bien.</p>}
@@ -279,9 +296,33 @@ export default function Inventario({ perfil }) {
               </div>
               <input value={nFoto} onChange={(e) => setNFoto(e.target.value)} placeholder="Enlace de la foto (opcional)"
                 className="w-full rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-blue" />
-              <input value={nGarantia} onChange={(e) => setNGarantia(e.target.value)} type="number" min="0" placeholder="Días de garantía (opcional)"
-                className="w-full rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-blue" />
-              <p className="text-xs text-muted">El stock inicial entra al almacén principal (Gym).</p>
+              <div className="grid grid-cols-2 gap-2">
+                <input value={nGarantia} onChange={(e) => setNGarantia(e.target.value)} type="number" min="0" placeholder="Días de garantía (opcional)"
+                  className="w-full rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-blue" />
+                <input value={nStockMinimo} onChange={(e) => setNStockMinimo(e.target.value)} type="number" min="0" placeholder="Stock mínimo"
+                  className="w-full rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-blue" />
+              </div>
+              <p className="text-xs text-muted">El stock inicial entra al almacén principal (Gym). Cuando el stock total llegue al mínimo, se crea un aviso solo.</p>
+
+              <select value={nSocioId} onChange={(e) => setNSocioId(e.target.value)}
+                className="w-full rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-blue bg-surface">
+                <option value="">Sin socio (100% tuyo)</option>
+                {socios.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+              </select>
+              {nSocioId && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] text-muted mb-1">% que invirtió el socio</label>
+                    <input value={nPctInversion} onChange={(e) => setNPctInversion(e.target.value)} type="number" min="0" max="100" placeholder="100"
+                      className="w-full rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-blue" />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-muted mb-1">% de ganancia del socio</label>
+                    <input value={nPctGanancia} onChange={(e) => setNPctGanancia(e.target.value)} type="number" min="0" max="100" placeholder="0"
+                      className="w-full rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-blue" />
+                  </div>
+                </div>
+              )}
               <div className="flex gap-2">
                 <button type="submit" className="flex-1 rounded-xl bg-blue text-white font-semibold py-2.5 text-sm">Guardar</button>
                 <button type="button" onClick={() => setNuevo(false)} className="text-sm text-muted px-3">Cancelar</button>
