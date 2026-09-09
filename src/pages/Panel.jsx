@@ -1,16 +1,23 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense, lazy } from 'react'
 import { supabase } from '../supabaseClient'
-import Resumen from '../sections/Resumen'
-import Matriculas from '../sections/Matriculas'
-import Nevera from '../sections/Nevera'
-import Vitrina from '../sections/Vitrina'
-import Inventario from '../sections/Inventario'
-import Gastos from '../sections/Gastos'
-import Equipo from '../sections/Equipo'
-import Cierre from '../sections/Cierre'
-import Avisos from '../sections/Avisos'
-import Actividad from '../sections/Actividad'
-import Fondos from '../sections/Fondos'
+
+// Cada pestaña se carga solo cuando se abre, para que la primera
+// pantalla (Resumen) pese lo menos posible con conexión mala.
+const Resumen = lazy(() => import('../sections/Resumen'))
+const Matriculas = lazy(() => import('../sections/Matriculas'))
+const Nevera = lazy(() => import('../sections/Nevera'))
+const Vitrina = lazy(() => import('../sections/Vitrina'))
+const Inventario = lazy(() => import('../sections/Inventario'))
+const Gastos = lazy(() => import('../sections/Gastos'))
+const Equipo = lazy(() => import('../sections/Equipo'))
+const Cierre = lazy(() => import('../sections/Cierre'))
+const Avisos = lazy(() => import('../sections/Avisos'))
+const Actividad = lazy(() => import('../sections/Actividad'))
+const Fondos = lazy(() => import('../sections/Fondos'))
+
+function Cargando() {
+  return <p className="text-sm text-muted">Cargando…</p>
+}
 
 const TABS_BASE = [
   { id: 'resumen', label: 'Resumen' },
@@ -75,18 +82,22 @@ export default function Panel() {
       </header>
 
       <main className="px-5 pt-5 pb-10 max-w-md mx-auto">
-        {!perfil && <p className="text-sm text-muted">Cargando…</p>}
-        {perfil && tab === 'resumen' && <Resumen />}
-        {perfil && tab === 'matriculas' && <Matriculas perfil={perfil} />}
-        {perfil && tab === 'nevera' && <Nevera perfil={perfil} />}
-        {perfil && tab === 'vitrina' && <Vitrina />}
-        {perfil && tab === 'inventario' && <Inventario perfil={perfil} />}
-        {perfil && tab === 'gastos' && <Gastos perfil={perfil} />}
-        {perfil && tab === 'avisos' && <Avisos perfil={perfil} />}
-        {perfil && tab === 'equipo' && perfil.rol === 'admin' && <Equipo />}
-        {perfil && tab === 'cierre' && perfil.rol === 'admin' && <Cierre />}
-        {perfil && tab === 'fondos' && perfil.rol === 'admin' && <Fondos />}
-        {perfil && tab === 'actividad' && perfil.rol === 'admin' && <Actividad />}
+        {!perfil && <Cargando />}
+        {perfil && (
+          <Suspense fallback={<Cargando />}>
+            {tab === 'resumen' && <Resumen />}
+            {tab === 'matriculas' && <Matriculas perfil={perfil} />}
+            {tab === 'nevera' && <Nevera perfil={perfil} />}
+            {tab === 'vitrina' && <Vitrina />}
+            {tab === 'inventario' && <Inventario perfil={perfil} />}
+            {tab === 'gastos' && <Gastos perfil={perfil} />}
+            {tab === 'avisos' && <Avisos perfil={perfil} />}
+            {tab === 'equipo' && perfil.rol === 'admin' && <Equipo />}
+            {tab === 'cierre' && perfil.rol === 'admin' && <Cierre />}
+            {tab === 'fondos' && perfil.rol === 'admin' && <Fondos />}
+            {tab === 'actividad' && perfil.rol === 'admin' && <Actividad />}
+          </Suspense>
+        )}
       </main>
 
       {menuAbierto && (

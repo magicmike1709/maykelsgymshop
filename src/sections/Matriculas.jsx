@@ -83,7 +83,7 @@ export default function Matriculas({ perfil }) {
       </div>
 
       {modo === 'clientes' ? (
-        <ClientesGym />
+        <ClientesGym perfil={perfil} />
       ) : (
       <>
       <div className="grid grid-cols-2 gap-3">
@@ -178,7 +178,99 @@ function FilaCliente({ c, abierto, onAbrir, detalle }) {
   )
 }
 
-function ClientesGym() {
+function normalizarFecha(f) {
+  const partes = (f || '').trim().split('/')
+  if (partes.length !== 3) return null
+  const [d, m, y] = partes
+  if (!d || !m || !y) return null
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+}
+
+function parseCSVClientes(texto) {
+  const lineas = texto.split(/\r?\n/).filter((l) => l.trim() !== '')
+  if (lineas.length < 2) return []
+  const header = lineas[0].replace(/^﻿/, '').split(',').map((h) => h.trim().toLowerCase())
+  const col = (buscar) => header.findIndex((h) => buscar.some((b) => h.includes(b)))
+  const idx = {
+    nombre: col(['nombre']),
+    fecha: header.indexOf('fecha'),
+    sexo: header.indexOf('sexo'),
+    entrenador: col(['entrenador']),
+    telefono: col(['phone', 'telefono', 'teléfono']),
+    monto: col(['monto', 'pago', 'importe'])
+  }
+  return lineas.slice(1).map((linea) => {
+    const cols = linea.split(',')
+    const nombre = (cols[idx.nombre] || '').trim()
+    const fecha = normalizarFecha(cols[idx.fecha])
+    if (!nombre || !fecha) return null
+    return {
+      nombre,
+      fecha,
+      sexo: idx.sexo >= 0 ? (cols[idx.sexo] || '').trim() || null : null,
+      entrenador: idx.entrenador >= 0 ? (cols[idx.entrenador] || '').trim() || null : null,
+      telefono: idx.telefono >= 0 ? (cols[idx.telefono] || '').trim() || null : null,
+      monto: idx.monto >= 0 && cols[idx.monto]?.trim() ? Number(cols[idx.monto]) : null
+    }
+  }).filter(Boolean)
+}
+
+function ImportarCSV({ onListo }) {
+  const [filas, setFilas] = useState(null)
+  const [subiendo, setSubiendo] = useState(false)
+  const [progreso, setProgreso] = useState(0)
+  const [abierto, setAbierto] = useState(false)
+
+  function elegirArchivo(e) {
+    const archivo = e.target.files?.[0]
+    if (!archivo) return
+    const lector = new FileReader()
+    lector.onload = () => setFilas(parseCSVClientes(String(lector.result)))
+    lector.readAsText(archivo)
+  }
+
+  async function subir() {
+    if (!filas || filas.length === 0) return
+    setSubiendo(true)
+    setProgreso(0)
+    for (let i = 0; i < filas.length; i++) {
+      const f = filas[i]
+      await supabase.rpc('cliente_visita_registrar', {
+        p_nombre: f.nombre, p_fecha: f.fecha, p_telefono: f.telefono, p_sexo: f.sexo, p_entrenador: f.entrenador, p_monto: f.monto
+      })
+      setProgreso(i + 1)
+    }
+    setSubiendo(false)
+    setFilas(null)
+    setAbierto(false)
+    onListo()
+  }
+
+  if (!abierto) {
+    return <button onClick={() => setAbierto(true)} className="text-xs font-semibold text-green-strong underline">+ Importar CSV</button>
+  }
+
+  return (
+    <div className="rounded-xl border border-green bg-green-soft p-3 space-y-2">
+      <p className="text-xs text-muted">Columnas esperadas: Nombre, Fecha (dd/m/aaaa), Sexo, Entrenador, Phone — y Monto si lo tienes.</p>
+      <input type="file" accept=".csv" onChange={elegirArchivo}
+        className="w-full text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-green file:text-white file:px-3 file:py-1.5 file:text-xs" />
+      {filas && !subiendo && (
+        <p className="text-sm font-semibold">{filas.length} registros detectados.</p>
+      )}
+      {subiendo && <p className="text-sm text-muted">Cargando {progreso} de {filas.length}…</p>}
+      <div className="flex gap-2">
+        {filas && !subiendo && (
+          <button onClick={subir} className="flex-1 rounded-xl bg-green text-white text-sm font-semibold py-2">Cargar {filas.length} registros</button>
+        )}
+        <button onClick={() => { setAbierto(false); setFilas(null) }} className="text-sm text-muted px-3">Cancelar</button>
+      </div>
+    </div>
+  )
+}
+
+function ClientesGym({ perfil }) {
+  const puedeImportar = perfil?.rol === 'admin' || perfil?.rol === 'operador_plus'
   const [sub, setSub] = useState('directorio') // buscar | directorio | estadisticas
   const [abierto, setAbierto] = useState(null)
   const [detalle, setDetalle] = useState(null)
@@ -192,13 +284,14 @@ function ClientesGym() {
   const [directorio, setDirectorio] = useState([])
 
   const [stats, setStats] = useState(null)
+  const [refrescar, setRefrescar] = useState(0)
 
   useEffect(() => {
     supabase.rpc('clientes_meses_disponibles').then(({ data }) => {
       setMeses(data || [])
-      if (data && data.length > 0) setMesElegido(data[0].mes)
+      if (data && data.length > 0 && !mesElegido) setMesElegido(data[0].mes)
     })
-  }, [])
+  }, [refrescar])
 
   useEffect(() => {
     if (busqueda.trim() === '') { setResultados([]); return }
@@ -215,12 +308,12 @@ function ClientesGym() {
     } else if (mesElegido) {
       supabase.rpc('clientes_por_mes', { p_mes: mesElegido }).then(({ data }) => setDirectorio(data || []))
     }
-  }, [sub, verTodos, mesElegido])
+  }, [sub, verTodos, mesElegido, refrescar])
 
   useEffect(() => {
     if (sub !== 'estadisticas' || !mesElegido) return
     supabase.rpc('clientes_estadisticas_mes', { p_mes: mesElegido }).then(({ data }) => setStats(data))
-  }, [sub, mesElegido])
+  }, [sub, mesElegido, refrescar])
 
   async function abrir(id) {
     if (abierto === id) { setAbierto(null); return }
@@ -254,6 +347,7 @@ function ClientesGym() {
 
       {sub === 'directorio' && (
         <div className="space-y-3">
+          {puedeImportar && <ImportarCSV onListo={() => setRefrescar((r) => r + 1)} />}
           <div className="flex gap-1.5">
             <button onClick={() => setVerTodos(false)}
               className={'flex-1 py-1.5 rounded-full text-xs font-semibold border ' + (!verTodos ? 'bg-green text-white border-green' : 'border-line text-muted')}>
