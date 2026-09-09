@@ -35,6 +35,20 @@ const PERIODOS = [
   { id: 'mes', label: 'Mes' }
 ]
 
+function textoWhatsapp(periodo, r) {
+  const etiqueta = PERIODOS.find((p) => p.id === periodo)?.label || periodo
+  const lineas = [
+    `🏋️ Maykel's Gym — ${etiqueta}`,
+    `Matrículas: ${n(r.cup.matriculas)} CUP (${r.cup.matriculas_pagos} pagos)`,
+    `Nevera: vendido ${n(r.cup.nevera_ventas)} · ganancia ${n(r.cup.nevera_ganancia)} CUP`,
+    `Neto CUP: ${n(r.cup.neto)}`,
+    `Vitrina: vendido $${n(r.usd.vitrina_ventas)} · ganancia $${n(r.usd.vitrina_ganancia)}`,
+    `Neto USD: $${n(r.usd.neto)}`,
+    `Pendientes: ${r.fiados_pendientes} fiados · $${n(r.comisiones_pendientes)} comisiones · $${n(r.mensajeria_pendiente)} mensajería`
+  ]
+  return lineas.join('\n')
+}
+
 function Tile({ label, value, sub, tono = 'text-ink' }) {
   return (
     <div className="rounded-xl border border-line bg-surface px-3 py-2.5 shadow-sm">
@@ -75,6 +89,11 @@ export default function Resumen() {
   if (error) return <p className="text-sm text-muted">{error}</p>
   if (!r) return <p className="text-sm text-muted">Cargando…</p>
 
+  function compartir() {
+    const url = 'https://wa.me/?text=' + encodeURIComponent(textoWhatsapp(periodo, r))
+    window.open(url, '_blank')
+  }
+
   return (
     <div className="space-y-6 pb-4">
       <div className="flex gap-1.5">
@@ -86,6 +105,11 @@ export default function Resumen() {
           </button>
         ))}
       </div>
+
+      <button onClick={compartir}
+        className="w-full rounded-xl border border-green text-green-strong font-semibold py-2.5 text-sm flex items-center justify-center gap-2">
+        Compartir resumen por WhatsApp
+      </button>
 
       <Grupo titulo="Matrículas del gym · CUP" tono="text-green-strong">
         <Tile label="Cobrado" value={n(r.cup.matriculas)} sub="CUP" />

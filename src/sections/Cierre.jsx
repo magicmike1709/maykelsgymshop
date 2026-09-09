@@ -5,11 +5,21 @@ function n(v) {
   return Number(v || 0).toLocaleString('es-CU')
 }
 
+function tonoDescuadre(d) {
+  if (d === null || d === undefined) return 'text-muted'
+  const abs = Math.abs(Number(d))
+  if (abs === 0) return 'text-green-strong'
+  if (abs < 1000) return 'text-yellow'
+  return 'text-red'
+}
+
 export default function Cierre() {
   const [resumenHoy, setResumenHoy] = useState(null)
   const [historial, setHistorial] = useState([])
   const [mensaje, setMensaje] = useState('')
   const [cerrando, setCerrando] = useState(false)
+  const [cajaContada, setCajaContada] = useState('')
+  const [conteoAbierto, setConteoAbierto] = useState(null) // dia para el que se está contando
 
   async function cargar() {
     const { data: r } = await supabase.rpc('panel_resumen')
@@ -25,17 +35,25 @@ export default function Cierre() {
   async function cerrarHoy() {
     setMensaje('')
     setCerrando(true)
-    const { data, error } = await supabase.rpc('cierre_crear')
+    const p_caja_contada = cajaContada === '' ? null : Number(cajaContada)
+    const { data, error } = await supabase.rpc('cierre_crear', { p_caja_contada })
     setCerrando(false)
     if (error) return setMensaje('No se pudo cerrar: ' + error.message)
     if (data?.ok === false) return setMensaje('Hoy ya está cerrado.')
     setMensaje('Día cerrado.')
+    setCajaContada('')
     cargar()
   }
 
   async function reabrir(dia) {
     await supabase.rpc('cierre_reabrir', { p_dia: dia })
     cargar()
+  }
+
+  async function guardarConteo(dia, valor) {
+    if (valor === '') return
+    const { error } = await supabase.rpc('cierre_registrar_conteo', { p_dia: dia, p_caja_contada: Number(valor) })
+    if (!error) { setConteoAbierto(null); cargar() }
   }
 
   const hoyCerrado = resumenHoy?.dia_cerrado_hoy
@@ -51,6 +69,10 @@ export default function Cierre() {
               Al cerrar, se guarda una foto de los números de hoy y ya no se puede editar nada de ese día
               (matrículas, ventas, gastos) hasta que lo reabras.
             </p>
+            <label className="block text-xs font-semibold text-muted mb-1">Efectivo CUP contado en caja (opcional)</label>
+            <input value={cajaContada} onChange={(e) => setCajaContada(e.target.value)} type="number" min="0"
+              placeholder="Cuenta el efectivo y ponlo aquí"
+              className="w-full mb-3 rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-green" />
             <button onClick={cerrarHoy} disabled={cerrando}
               className="w-full rounded-xl bg-red text-white font-semibold py-3 disabled:opacity-60">
               {cerrando ? 'Cerrando…' : 'Cerrar el día de hoy'}
@@ -75,6 +97,19 @@ export default function Cierre() {
               <div className="text-xs text-muted tabular-nums">
                 CUP: {n(c.snapshot?.cup?.neto)} · USD: {n(c.snapshot?.usd?.neto)}
               </div>
+
+              <div className="mt-2 text-xs">
+                {c.caja_contada !== null && c.caja_contada !== undefined ? (
+                  <span className={'font-semibold tabular-nums ' + tonoDescuadre(c.descuadre)}>
+                    Caja: esperada {n(c.caja_esperada)} · contada {n(c.caja_contada)} · descuadre {Number(c.descuadre) > 0 ? '+' : ''}{n(c.descuadre)} CUP
+                  </span>
+                ) : conteoAbierto === c.dia ? (
+                  <ConteoForm dia={c.dia} onGuardar={guardarConteo} onCancelar={() => setConteoAbierto(null)} />
+                ) : (
+                  <button onClick={() => setConteoAbierto(c.dia)} className="text-muted underline">Registrar conteo de caja</button>
+                )}
+              </div>
+
               {c.estado === 'cerrado' && (
                 <button onClick={() => reabrir(c.dia)} className="mt-2 text-xs font-semibold text-red border border-red rounded-full px-3 py-1">
                   Reabrir
@@ -84,6 +119,18 @@ export default function Cierre() {
           ))}
         </div>
       </section>
+    </div>
+  )
+}
+
+function ConteoForm({ dia, onGuardar, onCancelar }) {
+  const [valor, setValor] = useState('')
+  return (
+    <div className="flex items-center gap-2">
+      <input value={valor} onChange={(e) => setValor(e.target.value)} type="number" min="0" placeholder="CUP contado"
+        className="flex-1 rounded-lg border border-line px-3 py-1.5 text-xs outline-none focus:border-green" autoFocus />
+      <button onClick={() => onGuardar(dia, valor)} className="text-xs font-semibold text-green-strong">Guardar</button>
+      <button onClick={onCancelar} className="text-xs text-muted">Cancelar</button>
     </div>
   )
 }

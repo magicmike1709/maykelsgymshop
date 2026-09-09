@@ -10,6 +10,7 @@ import Equipo from '../sections/Equipo'
 import Cierre from '../sections/Cierre'
 import Avisos from '../sections/Avisos'
 import Actividad from '../sections/Actividad'
+import Fondos from '../sections/Fondos'
 
 const TABS_BASE = [
   { id: 'resumen', label: 'Resumen' },
@@ -24,6 +25,7 @@ const TABS_BASE = [
 const TABS_ADMIN = [
   { id: 'equipo', label: 'Equipo' },
   { id: 'cierre', label: 'Cierre' },
+  { id: 'fondos', label: 'Fondos del equipo' },
   { id: 'actividad', label: 'Actividad' }
 ]
 
@@ -83,6 +85,7 @@ export default function Panel() {
         {perfil && tab === 'avisos' && <Avisos perfil={perfil} />}
         {perfil && tab === 'equipo' && perfil.rol === 'admin' && <Equipo />}
         {perfil && tab === 'cierre' && perfil.rol === 'admin' && <Cierre />}
+        {perfil && tab === 'fondos' && perfil.rol === 'admin' && <Fondos />}
         {perfil && tab === 'actividad' && perfil.rol === 'admin' && <Actividad />}
       </main>
 
