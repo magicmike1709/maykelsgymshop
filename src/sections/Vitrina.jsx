@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
 
-export default function Vitrina({ perfil }) {
+export default function Vitrina() {
   const [almacenes, setAlmacenes] = useState([])
   const [almacenId, setAlmacenId] = useState('')
   const [productos, setProductos] = useState([])
@@ -18,31 +18,11 @@ export default function Vitrina({ perfil }) {
   const [mensaje, setMensaje] = useState('')
   const [guardando, setGuardando] = useState(false)
 
-  const [nuevo, setNuevo] = useState(false)
-  const [nNombre, setNNombre] = useState('')
-  const [nPrecio, setNPrecio] = useState('')
-  const [nCosto, setNCosto] = useState('')
-  const [nStock, setNStock] = useState('')
-
-  const [entradaAbierta, setEntradaAbierta] = useState(false)
-  const [eProductoId, setEProductoId] = useState('')
-  const [eAlmacenId, setEAlmacenId] = useState('')
-  const [eCantidad, setECantidad] = useState('')
-  const [eCosto, setECosto] = useState('')
-  const [eProveedor, setEProveedor] = useState('')
-  const [eMensaje, setEMensaje] = useState('')
-  const [todosProductos, setTodosProductos] = useState([])
-  const [entradas, setEntradas] = useState([])
-
-  const puedeEditar = perfil?.rol === 'admin' || perfil?.rol === 'operador_plus'
-
-  async function cargarAlmacenesYCatalogos() {
+  async function cargarBase() {
     const { data: a } = await supabase.rpc('almacenes_lista')
     setAlmacenes(a || [])
     const principal = (a || []).find((x) => x.es_principal) || (a || [])[0]
-    if (principal) { setAlmacenId(principal.id); setEAlmacenId(principal.id) }
-    const { data: todos } = await supabase.rpc('productos_lista')
-    setTodosProductos(todos || [])
+    if (principal) setAlmacenId(principal.id)
     const { data: g } = await supabase.rpc('gestores_lista')
     setGestores(g || [])
     const { data: m } = await supabase.rpc('mensajeros_lista')
@@ -60,11 +40,9 @@ export default function Vitrina({ perfil }) {
     setResumen(r)
     const { data: f } = await supabase.rpc('fiados_lista')
     setFiados(f || [])
-    const { data: e } = await supabase.rpc('entradas_lista')
-    setEntradas(e || [])
   }
 
-  useEffect(() => { cargarAlmacenesYCatalogos(); cargarResto() }, [])
+  useEffect(() => { cargarBase(); cargarResto() }, [])
   useEffect(() => { cargarProductosDelAlmacen(almacenId) }, [almacenId])
 
   function tocar(p) {
@@ -112,33 +90,6 @@ export default function Vitrina({ perfil }) {
     if (!error) cargarResto()
   }
 
-  async function guardarProducto(e) {
-    e.preventDefault()
-    if (!nNombre || !nPrecio || !nCosto) return
-    const { error } = await supabase.rpc('producto_guardar', {
-      p_id: null, p_nombre: nNombre, p_precio: Number(nPrecio), p_costo: Number(nCosto), p_stock: Number(nStock || 0)
-    })
-    if (!error) {
-      setNNombre(''); setNPrecio(''); setNCosto(''); setNStock(''); setNuevo(false)
-      cargarAlmacenesYCatalogos(); cargarProductosDelAlmacen(almacenId)
-    }
-  }
-
-  async function registrarEntrada(e) {
-    e.preventDefault()
-    setEMensaje('')
-    if (!eProductoId || !eAlmacenId || !eCantidad || !eCosto) return
-    const { data, error } = await supabase.rpc('entrada_registrar', {
-      p_producto_id: eProductoId, p_almacen_id: eAlmacenId,
-      p_cantidad: Number(eCantidad), p_costo_unitario: Number(eCosto),
-      p_proveedor: eProveedor || null
-    })
-    if (error) return setEMensaje('No se pudo guardar: ' + error.message)
-    setEMensaje('Entrada guardada. Costo promedio ahora: $' + Number(data.costo_nuevo).toFixed(2))
-    setECantidad(''); setECosto(''); setEProveedor('')
-    cargarAlmacenesYCatalogos(); cargarProductosDelAlmacen(almacenId); cargarResto()
-  }
-
   return (
     <div className="space-y-5 pb-4">
       <div className="grid grid-cols-2 gap-3">
@@ -169,7 +120,7 @@ export default function Vitrina({ perfil }) {
             </div>
           )}
         </div>
-        {productos.length === 0 && <p className="text-sm text-muted">No hay stock en este almacén todavía.</p>}
+        {productos.length === 0 && <p className="text-sm text-muted">No hay stock en este almacén todavía — agrégalo desde Inventario.</p>}
         <div className="grid grid-cols-2 gap-2">
           {productos.map((p) => (
             <button key={p.id} onClick={() => tocar(p)} disabled={p.stock <= 0}
@@ -245,80 +196,6 @@ export default function Vitrina({ perfil }) {
               </div>
             ))}
           </div>
-        </section>
-      )}
-
-      {puedeEditar && (
-        <section className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
-          <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-blue mb-3">Entró mercancía</h2>
-          {!entradaAbierta ? (
-            <button onClick={() => setEntradaAbierta(true)} className="text-sm font-semibold text-blue">+ Registrar entrada</button>
-          ) : (
-            <form onSubmit={registrarEntrada} className="space-y-2">
-              <select value={eProductoId} onChange={(e) => setEProductoId(e.target.value)}
-                className="w-full rounded-xl border border-line px-3 py-2.5 text-sm outline-none focus:border-blue bg-surface" required>
-                <option value="">Elige producto</option>
-                {todosProductos.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-              </select>
-              {almacenes.length > 1 && (
-                <select value={eAlmacenId} onChange={(e) => setEAlmacenId(e.target.value)}
-                  className="w-full rounded-xl border border-line px-3 py-2.5 text-sm outline-none focus:border-blue bg-surface">
-                  {almacenes.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
-                </select>
-              )}
-              <div className="grid grid-cols-2 gap-2">
-                <input value={eCantidad} onChange={(e) => setECantidad(e.target.value)} type="number" min="0" step="1" placeholder="Cantidad"
-                  className="w-full rounded-xl border border-line px-3 py-2.5 text-sm outline-none focus:border-blue" required />
-                <input value={eCosto} onChange={(e) => setECosto(e.target.value)} type="number" min="0" step="0.01" placeholder="Costo unitario"
-                  className="w-full rounded-xl border border-line px-3 py-2.5 text-sm outline-none focus:border-blue" required />
-              </div>
-              <input value={eProveedor} onChange={(e) => setEProveedor(e.target.value)} placeholder="Proveedor (opcional)"
-                className="w-full rounded-xl border border-line px-3 py-2.5 text-sm outline-none focus:border-blue" />
-              <div className="flex gap-2">
-                <button type="submit" className="flex-1 rounded-xl bg-blue text-white text-sm font-semibold py-2.5">Guardar entrada</button>
-                <button type="button" onClick={() => setEntradaAbierta(false)} className="text-sm text-muted px-3">Cancelar</button>
-              </div>
-              {eMensaje && <p className="text-xs text-muted">{eMensaje}</p>}
-            </form>
-          )}
-
-          {entradas.length > 0 && (
-            <div className="mt-3 pt-3 border-t border-line space-y-1.5">
-              <p className="text-[11px] uppercase tracking-wide text-muted font-semibold">Últimas entradas</p>
-              {entradas.slice(0, 5).map((e) => (
-                <div key={e.id} className="text-xs flex justify-between text-muted">
-                  <span>{e.producto_nombre} · {e.almacen_nombre} · {e.fecha}</span>
-                  <span className="tabular-nums">+{e.cantidad} a ${Number(e.costo_unitario).toFixed(2)}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
-
-      {puedeEditar && (
-        <section className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
-          {!nuevo ? (
-            <button onClick={() => setNuevo(true)} className="text-sm font-semibold text-blue">+ Producto nuevo</button>
-          ) : (
-            <form onSubmit={guardarProducto} className="space-y-2">
-              <input value={nNombre} onChange={(e) => setNNombre(e.target.value)} placeholder="Nombre"
-                className="w-full rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-blue" required />
-              <div className="grid grid-cols-3 gap-2">
-                <input value={nPrecio} onChange={(e) => setNPrecio(e.target.value)} type="number" min="0" placeholder="Precio"
-                  className="w-full rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-blue" required />
-                <input value={nCosto} onChange={(e) => setNCosto(e.target.value)} type="number" min="0" placeholder="Costo"
-                  className="w-full rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-blue" required />
-                <input value={nStock} onChange={(e) => setNStock(e.target.value)} type="number" min="0" placeholder="Stock inicial"
-                  className="w-full rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-blue" />
-              </div>
-              <p className="text-xs text-muted">El stock inicial entra al almacén principal (Gym). Para sumar más después, usa "Registrar entrada".</p>
-              <div className="flex gap-2">
-                <button type="submit" className="flex-1 rounded-xl bg-blue text-white font-semibold py-2.5 text-sm">Guardar</button>
-                <button type="button" onClick={() => setNuevo(false)} className="text-sm text-muted px-3">Cancelar</button>
-              </div>
-            </form>
-          )}
         </section>
       )}
     </div>
