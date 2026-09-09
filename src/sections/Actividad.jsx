@@ -36,6 +36,7 @@ export default function Actividad() {
             <span className="text-[11px] text-muted">{new Date(a.creado_en).toLocaleString('es-CU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
           </div>
           <div className="text-xs text-muted tabular-nums">{resumenDato(a.tabla, a.datos)}</div>
+          <div className="text-[11px] text-green-strong font-semibold mt-0.5">{a.usuario_nombre || 'Sistema'}</div>
         </div>
       ))}
       {lista.length === 0 && <p className="text-sm text-muted">Sin actividad todavía.</p>}

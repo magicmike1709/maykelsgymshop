@@ -98,7 +98,7 @@ export default function Vitrina() {
   }
 
   return (
-    <div className="space-y-5 pb-4">
+    <div className="space-y-5 pb-28">
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
           <div className="text-[11px] uppercase tracking-wide text-muted font-semibold mb-1">Vendido</div>
@@ -181,8 +181,13 @@ export default function Vitrina() {
               {mensajeros.map((m) => <option key={m.id} value={m.id}>{m.nombre}</option>)}
             </select>
           )}
+        </div>
+      )}
+      {mensaje && <p className="text-sm text-muted">{mensaje}</p>}
 
-          <div className="flex items-center justify-between pt-1">
+      {totalCarrito > 0 && (
+        <div className="fixed inset-x-4 bottom-4 z-40 rounded-2xl border border-line bg-blue-soft p-4 shadow-lg max-w-md mx-auto left-0 right-0">
+          <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-semibold">Total</span>
             <span className="text-lg font-bold tabular-nums">${totalCarrito.toLocaleString('en-US')}</span>
           </div>
@@ -192,7 +197,6 @@ export default function Vitrina() {
           </button>
         </div>
       )}
-      {mensaje && <p className="text-sm text-muted">{mensaje}</p>}
 
       {fiados.length > 0 && (
         <section>
