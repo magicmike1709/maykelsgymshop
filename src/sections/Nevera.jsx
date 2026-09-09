@@ -1,6 +1,25 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
 
+function n(v) {
+  return Number(v || 0).toLocaleString('es-CU')
+}
+function fmtDate(d) {
+  return d.toISOString().slice(0, 10)
+}
+function rango(periodo) {
+  const hoy = new Date()
+  const hastaHoy = fmtDate(hoy)
+  if (periodo === 'hoy') return { desde: hastaHoy, hasta: hastaHoy }
+  if (periodo === 'semana') {
+    const hace7 = new Date(hoy)
+    hace7.setDate(hace7.getDate() - 6)
+    return { desde: fmtDate(hace7), hasta: hastaHoy }
+  }
+  const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1)
+  return { desde: fmtDate(inicioMes), hasta: hastaHoy }
+}
+
 export default function Nevera({ perfil }) {
   const [productos, setProductos] = useState([])
   const [carrito, setCarrito] = useState({}) // id -> cantidad
@@ -8,13 +27,18 @@ export default function Nevera({ perfil }) {
   const [mensaje, setMensaje] = useState('')
   const [guardando, setGuardando] = useState(false)
 
-  const [gestionando, setGestionando] = useState(false)
+  const [modo, setModo] = useState('cobrar') // cobrar | gestionar | historial
   const [editId, setEditId] = useState(null) // null = form cerrado, 'nuevo' = crear, id = editar ese
   const [fNombre, setFNombre] = useState('')
   const [fPrecio, setFPrecio] = useState('')
   const [fCosto, setFCosto] = useState('')
 
+  const [periodoHist, setPeriodoHist] = useState('mes')
+  const [dias, setDias] = useState([])
+  const [topProductos, setTopProductos] = useState([])
+
   const puedeEditar = perfil?.rol === 'admin' || perfil?.rol === 'operador_plus'
+  const gestionando = modo === 'gestionar'
 
   async function cargar() {
     const { data: lista } = await supabase.rpc('refrigerios_lista')
@@ -26,6 +50,13 @@ export default function Nevera({ perfil }) {
   useEffect(() => {
     cargar()
   }, [])
+
+  useEffect(() => {
+    if (modo !== 'historial') return
+    const { desde, hasta } = rango(periodoHist)
+    supabase.rpc('refrigerios_historial_dias', { p_desde: desde, p_hasta: hasta }).then(({ data }) => setDias(data || []))
+    supabase.rpc('refrigerios_top_productos', { p_desde: desde, p_hasta: hasta }).then(({ data }) => setTopProductos(data || []))
+  }, [modo, periodoHist])
 
   function tocar(id) {
     setCarrito((c) => ({ ...c, [id]: (c[id] || 0) + 1 }))
@@ -102,16 +133,64 @@ export default function Nevera({ perfil }) {
         </div>
       </div>
 
-      <section>
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-green-strong">Cobrar</h2>
-          {puedeEditar && (
-            <button onClick={() => setGestionando((v) => !v)} className="text-xs font-semibold text-muted underline">
-              {gestionando ? 'Listo' : 'Gestionar productos'}
-            </button>
-          )}
-        </div>
+      <div className="flex gap-1.5">
+        <button onClick={() => setModo('cobrar')}
+          className={'flex-1 py-2 rounded-full text-xs font-semibold border ' + (modo === 'cobrar' ? 'bg-green text-white border-green' : 'border-line text-muted')}>
+          Cobrar
+        </button>
+        <button onClick={() => setModo('historial')}
+          className={'flex-1 py-2 rounded-full text-xs font-semibold border ' + (modo === 'historial' ? 'bg-green text-white border-green' : 'border-line text-muted')}>
+          Historial
+        </button>
+        {puedeEditar && (
+          <button onClick={() => setModo('gestionar')}
+            className={'flex-1 py-2 rounded-full text-xs font-semibold border ' + (modo === 'gestionar' ? 'bg-green text-white border-green' : 'border-line text-muted')}>
+            Gestionar
+          </button>
+        )}
+      </div>
 
+      {modo === 'historial' && (
+        <section className="space-y-4">
+          <div className="flex gap-1.5">
+            {[{ id: 'hoy', label: 'Hoy' }, { id: 'semana', label: '7 días' }, { id: 'mes', label: 'Mes' }].map((p) => (
+              <button key={p.id} onClick={() => setPeriodoHist(p.id)}
+                className={'flex-1 py-1.5 rounded-full text-xs font-semibold border ' + (periodoHist === p.id ? 'bg-yellow text-ink border-yellow' : 'border-line text-muted')}>
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          <div>
+            <h3 className="font-display text-xs font-semibold uppercase tracking-wide text-green-strong mb-2">Por día</h3>
+            {dias.length === 0 && <p className="text-sm text-muted">Sin ventas en este periodo.</p>}
+            <div className="space-y-1.5">
+              {dias.map((d) => (
+                <div key={d.fecha} className="flex items-center justify-between rounded-xl border border-line bg-surface px-3 py-2 text-sm">
+                  <span className="font-semibold">{d.fecha}</span>
+                  <span className="tabular-nums text-muted">{n(d.total)} CUP <span className="text-green-strong font-semibold">· +{n(d.ganancia)}</span></span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <h3 className="font-display text-xs font-semibold uppercase tracking-wide text-green-strong mb-2">Top productos</h3>
+            {topProductos.length === 0 && <p className="text-sm text-muted">Sin ventas en este periodo.</p>}
+            <div className="space-y-1.5">
+              {topProductos.map((t) => (
+                <div key={t.nombre} className="flex items-center justify-between rounded-xl border border-line bg-surface px-3 py-2 text-sm">
+                  <span className="font-semibold">{t.nombre}</span>
+                  <span className="tabular-nums text-muted">×{n(t.cantidad)} · {n(t.importe)} CUP</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {modo !== 'historial' && (
+      <section>
         {productos.length === 0 && <p className="text-sm text-muted">Todavía no hay productos de nevera. Agrega el primero abajo.</p>}
 
         {!gestionando ? (
@@ -189,10 +268,11 @@ export default function Nevera({ perfil }) {
           </div>
         )}
       </section>
+      )}
 
       {mensaje && <p className="text-sm text-muted">{mensaje}</p>}
 
-      {!gestionando && totalCarrito > 0 && (
+      {modo === 'cobrar' && totalCarrito > 0 && (
         <div className="fixed inset-x-4 bottom-4 z-40 rounded-2xl border border-line bg-yellow-soft p-4 shadow-lg max-w-md mx-auto left-0 right-0">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-semibold">Total</span>
