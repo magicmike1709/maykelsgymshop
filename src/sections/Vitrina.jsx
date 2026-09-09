@@ -5,8 +5,9 @@ export default function Vitrina() {
   const [almacenes, setAlmacenes] = useState([])
   const [almacenId, setAlmacenId] = useState('')
   const [productos, setProductos] = useState([])
+  const [combos, setCombos] = useState([])
   const [busqueda, setBusqueda] = useState('')
-  const [carrito, setCarrito] = useState({})
+  const [carrito, setCarrito] = useState({}) // clave "producto:<id>" o "combo:<id>" -> cantidad
   const [resumen, setResumen] = useState(null)
   const [fiados, setFiados] = useState([])
   const [gestores, setGestores] = useState([])
@@ -28,6 +29,8 @@ export default function Vitrina() {
     setGestores(g || [])
     const { data: m } = await supabase.rpc('mensajeros_lista')
     setMensajeros(m || [])
+    const { data: c } = await supabase.rpc('combos_lista')
+    setCombos(c || [])
   }
 
   async function cargarProductosDelAlmacen(id) {
@@ -52,29 +55,44 @@ export default function Vitrina() {
     return productos.filter((p) => p.nombre.toLowerCase().includes(q) || (p.codigo || '').toLowerCase().includes(q))
   }, [productos, busqueda])
 
-  function tocar(p) {
-    const enCarrito = carrito[p.id] || 0
+  const combosFiltrados = useMemo(() => {
+    const q = busqueda.trim().toLowerCase()
+    if (!q) return combos
+    return combos.filter((c) => c.nombre.toLowerCase().includes(q))
+  }, [combos, busqueda])
+
+  function tocarProducto(p) {
+    const clave = 'producto:' + p.id
+    const enCarrito = carrito[clave] || 0
     if (enCarrito >= p.stock) return
-    setCarrito((c) => ({ ...c, [p.id]: enCarrito + 1 }))
+    setCarrito((c) => ({ ...c, [clave]: enCarrito + 1 }))
   }
-  function quitar(id) {
+  function tocarCombo(c) {
+    const clave = 'combo:' + c.id
+    setCarrito((car) => ({ ...car, [clave]: (car[clave] || 0) + 1 }))
+  }
+  function quitar(clave) {
     setCarrito((c) => {
       const n = { ...c }
-      if (n[id] > 1) n[id] -= 1
-      else delete n[id]
+      if (n[clave] > 1) n[clave] -= 1
+      else delete n[clave]
       return n
     })
   }
 
-  const totalCarrito = Object.entries(carrito).reduce((sum, [id, cant]) => {
-    const p = productos.find((x) => x.id === id)
-    return sum + (p ? p.precio * cant : 0)
+  const totalCarrito = Object.entries(carrito).reduce((sum, [clave, cant]) => {
+    const [tipo, id] = clave.split(':')
+    const item = tipo === 'producto' ? productos.find((x) => x.id === id) : combos.find((x) => x.id === id)
+    return sum + (item ? item.precio * cant : 0)
   }, 0)
 
   async function cobrar() {
     setMensaje('')
     setGuardando(true)
-    const lineas = Object.entries(carrito).map(([producto_id, cantidad]) => ({ producto_id, cantidad }))
+    const lineas = Object.entries(carrito).map(([clave, cantidad]) => {
+      const [tipo, id] = clave.split(':')
+      return tipo === 'producto' ? { producto_id: id, cantidad } : { combo_id: id, cantidad }
+    })
     const { error } = await supabase.rpc('venta_crear', {
       p_lineas: lineas,
       p_cliente: cliente || null,
@@ -129,26 +147,50 @@ export default function Vitrina() {
         </div>
         <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar producto…"
           className="w-full mb-2 rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-blue" />
+        {combosFiltrados.length > 0 && (
+          <div className="grid grid-cols-2 gap-2 mb-2">
+            {combosFiltrados.map((c) => {
+              const clave = 'combo:' + c.id
+              return (
+                <button key={c.id} onClick={() => tocarCombo(c)}
+                  className="text-left rounded-xl border-2 border-yellow bg-yellow-soft px-3 py-3 shadow-sm active:opacity-80">
+                  <div className="text-[10px] font-bold uppercase tracking-wide text-yellow mb-0.5">Combo</div>
+                  <div className="text-sm font-semibold">{c.nombre}</div>
+                  <div className="text-xs text-muted tabular-nums">${Number(c.precio).toLocaleString('en-US')}</div>
+                  {carrito[clave] > 0 && (
+                    <div className="mt-1 flex items-center gap-2">
+                      <span className="text-xs font-bold text-blue">×{carrito[clave]}</span>
+                      <button onClick={(e) => { e.stopPropagation(); quitar(clave) }} className="text-xs text-red">quitar</button>
+                    </div>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        )}
         {productos.length === 0 && <p className="text-sm text-muted">No hay stock en este almacén todavía — agrégalo desde Inventario.</p>}
         <div className="grid grid-cols-2 gap-2">
-          {productosFiltrados.map((p) => (
-            <button key={p.id} onClick={() => tocar(p)} disabled={p.stock <= 0}
-              className="text-left rounded-xl border border-line bg-surface px-3 py-3 shadow-sm active:bg-blue-soft disabled:opacity-40 flex gap-2.5 items-center">
-              {p.foto_url
-                ? <img src={p.foto_url} alt="" className="w-10 h-10 rounded-lg object-cover border border-line flex-shrink-0" />
-                : <div className="w-10 h-10 rounded-lg bg-sunken flex-shrink-0" />}
-              <div className="min-w-0">
-                <div className="text-sm font-semibold truncate">{p.nombre}</div>
-                <div className="text-xs text-muted tabular-nums">${Number(p.precio).toLocaleString('en-US')} · stock {p.stock}</div>
-                {carrito[p.id] > 0 && (
-                  <div className="mt-1 flex items-center gap-2">
-                    <span className="text-xs font-bold text-blue">×{carrito[p.id]}</span>
-                    <button onClick={(e) => { e.stopPropagation(); quitar(p.id) }} className="text-xs text-red">quitar</button>
-                  </div>
-                )}
-              </div>
-            </button>
-          ))}
+          {productosFiltrados.map((p) => {
+            const clave = 'producto:' + p.id
+            return (
+              <button key={p.id} onClick={() => tocarProducto(p)} disabled={p.stock <= 0}
+                className="text-left rounded-xl border border-line bg-surface px-3 py-3 shadow-sm active:bg-blue-soft disabled:opacity-40 flex gap-2.5 items-center">
+                {p.foto_url
+                  ? <img src={p.foto_url} alt="" className="w-10 h-10 rounded-lg object-cover border border-line flex-shrink-0" />
+                  : <div className="w-10 h-10 rounded-lg bg-sunken flex-shrink-0" />}
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold truncate">{p.nombre}</div>
+                  <div className="text-xs text-muted tabular-nums">${Number(p.precio).toLocaleString('en-US')} · stock {p.stock}</div>
+                  {carrito[clave] > 0 && (
+                    <div className="mt-1 flex items-center gap-2">
+                      <span className="text-xs font-bold text-blue">×{carrito[clave]}</span>
+                      <button onClick={(e) => { e.stopPropagation(); quitar(clave) }} className="text-xs text-red">quitar</button>
+                    </div>
+                  )}
+                </div>
+              </button>
+            )
+          })}
         </div>
       </section>
 

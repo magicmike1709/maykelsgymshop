@@ -16,6 +16,14 @@ export default function Inventario({ perfil }) {
   const [nCosto, setNCosto] = useState('')
   const [nStock, setNStock] = useState('')
   const [nFoto, setNFoto] = useState('')
+  const [nGarantia, setNGarantia] = useState('')
+
+  const [combos, setCombos] = useState([])
+  const [comboAbierto, setComboAbierto] = useState(false)
+  const [cNombre, setCNombre] = useState('')
+  const [cPrecio, setCPrecio] = useState('')
+  const [cLineas, setCLineas] = useState([]) // [{producto_id, cantidad}]
+  const [cBusqueda, setCBusqueda] = useState('')
 
   const [entradaAbierta, setEntradaAbierta] = useState(false)
   const [eBusqueda, setEBusqueda] = useState('')
@@ -40,14 +48,16 @@ export default function Inventario({ perfil }) {
   }
 
   async function cargar() {
-    const [inv, alm, prod] = await Promise.all([
+    const [inv, alm, prod, com] = await Promise.all([
       supabase.rpc('inventario_resumen'),
       supabase.rpc('almacenes_lista'),
-      supabase.rpc('productos_lista')
+      supabase.rpc('productos_lista'),
+      supabase.rpc('combos_lista')
     ])
     setResumen(inv.data)
     setAlmacenes(alm.data || [])
     setProductos(prod.data || [])
+    setCombos(com.data || [])
     if ((alm.data || []).length > 0 && !eAlmacenId) {
       const principal = alm.data.find((a) => a.es_principal) || alm.data[0]
       setEAlmacenId(principal.id)
@@ -86,13 +96,46 @@ export default function Inventario({ perfil }) {
     if (!nNombre || !nPrecio || !nCosto) return
     const { error } = await supabase.rpc('producto_guardar', {
       p_id: null, p_nombre: nNombre, p_precio: Number(nPrecio), p_costo: Number(nCosto),
-      p_stock: Number(nStock || 0), p_foto_url: nFoto || null
+      p_stock: Number(nStock || 0), p_foto_url: nFoto || null, p_dias_garantia: Number(nGarantia || 0)
     })
     if (!error) {
-      setNNombre(''); setNPrecio(''); setNCosto(''); setNStock(''); setNFoto(''); setNuevo(false)
+      setNNombre(''); setNPrecio(''); setNCosto(''); setNStock(''); setNFoto(''); setNGarantia(''); setNuevo(false)
       cargar()
     }
   }
+
+  function agregarLineaCombo(producto) {
+    setCLineas((l) => {
+      if (l.find((x) => x.producto_id === producto.id)) return l
+      return [...l, { producto_id: producto.id, nombre: producto.nombre, cantidad: 1 }]
+    })
+    setCBusqueda('')
+  }
+  function quitarLineaCombo(id) {
+    setCLineas((l) => l.filter((x) => x.producto_id !== id))
+  }
+  function cambiarCantidadCombo(id, cantidad) {
+    setCLineas((l) => l.map((x) => (x.producto_id === id ? { ...x, cantidad } : x)))
+  }
+
+  async function guardarCombo(e) {
+    e.preventDefault()
+    if (!cNombre || !cPrecio || cLineas.length === 0) return
+    const { error } = await supabase.rpc('combo_guardar', {
+      p_nombre: cNombre, p_precio: Number(cPrecio),
+      p_lineas: cLineas.map((l) => ({ producto_id: l.producto_id, cantidad: Number(l.cantidad) }))
+    })
+    if (!error) {
+      setCNombre(''); setCPrecio(''); setCLineas([]); setComboAbierto(false)
+      cargar()
+    }
+  }
+
+  const productosParaCombo = useMemo(() => {
+    const q = cBusqueda.trim().toLowerCase()
+    if (!q) return []
+    return productos.filter((p) => p.nombre.toLowerCase().includes(q)).slice(0, 6)
+  }, [productos, cBusqueda])
 
   async function registrarEntrada(e) {
     e.preventDefault()
@@ -236,10 +279,67 @@ export default function Inventario({ perfil }) {
               </div>
               <input value={nFoto} onChange={(e) => setNFoto(e.target.value)} placeholder="Enlace de la foto (opcional)"
                 className="w-full rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-blue" />
+              <input value={nGarantia} onChange={(e) => setNGarantia(e.target.value)} type="number" min="0" placeholder="Días de garantía (opcional)"
+                className="w-full rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-blue" />
               <p className="text-xs text-muted">El stock inicial entra al almacén principal (Gym).</p>
               <div className="flex gap-2">
                 <button type="submit" className="flex-1 rounded-xl bg-blue text-white font-semibold py-2.5 text-sm">Guardar</button>
                 <button type="button" onClick={() => setNuevo(false)} className="text-sm text-muted px-3">Cancelar</button>
+              </div>
+            </form>
+          )}
+        </section>
+      )}
+
+      {puedeEditar && (
+        <section className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-blue">Combos</h2>
+            {!comboAbierto && <button onClick={() => setComboAbierto(true)} className="text-sm font-semibold text-blue">+ Nuevo combo</button>}
+          </div>
+          {combos.length > 0 && !comboAbierto && (
+            <div className="space-y-1">
+              {combos.map((c) => (
+                <div key={c.id} className="text-sm flex justify-between">
+                  <span>{c.nombre} <span className="text-muted text-xs">({(c.componentes || []).map((x) => x.nombre).join(' + ')})</span></span>
+                  <span className="font-semibold tabular-nums">${Number(c.precio).toLocaleString('en-US')}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {comboAbierto && (
+            <form onSubmit={guardarCombo} className="space-y-2">
+              <input value={cNombre} onChange={(e) => setCNombre(e.target.value)} placeholder="Nombre del combo"
+                className="w-full rounded-xl border border-line px-3 py-2.5 text-sm outline-none focus:border-blue" required />
+              <input value={cPrecio} onChange={(e) => setCPrecio(e.target.value)} type="number" min="0" placeholder="Precio del combo"
+                className="w-full rounded-xl border border-line px-3 py-2.5 text-sm outline-none focus:border-blue" required />
+
+              <div className="space-y-1">
+                {cLineas.map((l) => (
+                  <div key={l.producto_id} className="flex items-center gap-2 text-sm">
+                    <span className="flex-1">{l.nombre}</span>
+                    <input type="number" min="1" value={l.cantidad} onChange={(e) => cambiarCantidadCombo(l.producto_id, e.target.value)}
+                      className="w-14 rounded-lg border border-line px-2 py-1 text-sm text-center" />
+                    <button type="button" onClick={() => quitarLineaCombo(l.producto_id)} className="text-xs text-red">quitar</button>
+                  </div>
+                ))}
+              </div>
+
+              <input value={cBusqueda} onChange={(e) => setCBusqueda(e.target.value)} placeholder="Buscar producto para agregar…"
+                className="w-full rounded-xl border border-line px-3 py-2.5 text-sm outline-none focus:border-blue" />
+              {productosParaCombo.length > 0 && (
+                <div className="rounded-xl border border-line divide-y divide-line max-h-40 overflow-y-auto">
+                  {productosParaCombo.map((p) => (
+                    <button type="button" key={p.id} onClick={() => agregarLineaCombo(p)} className="w-full text-left px-3 py-2 text-sm active:bg-blue-soft">
+                      {p.nombre}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <button type="submit" className="flex-1 rounded-xl bg-blue text-white text-sm font-semibold py-2.5">Guardar combo</button>
+                <button type="button" onClick={() => { setComboAbierto(false); setCLineas([]); setCNombre(''); setCPrecio('') }} className="text-sm text-muted px-3">Cancelar</button>
               </div>
             </form>
           )}
