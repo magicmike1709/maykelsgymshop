@@ -53,11 +53,31 @@ export default function Resumen() {
         </div>
       </section>
 
-      {r.fiados_pendientes > 0 && (
-        <p className="text-sm text-yellow font-semibold">
-          {r.fiados_pendientes} fiado{r.fiados_pendientes === 1 ? '' : 's'} pendiente{r.fiados_pendientes === 1 ? '' : 's'} de cobrar — ver en Vitrina.
-        </p>
-      )}
+      <div className="space-y-1.5">
+        {r.fiados_pendientes > 0 && (
+          <p className="text-sm text-yellow font-semibold">
+            {r.fiados_pendientes} fiado{r.fiados_pendientes === 1 ? '' : 's'} pendiente{r.fiados_pendientes === 1 ? '' : 's'} de cobrar — ver en Vitrina.
+          </p>
+        )}
+        {Number(r.comisiones_pendientes) > 0 && (
+          <p className="text-sm text-yellow font-semibold">
+            ${n(r.comisiones_pendientes)} en comisiones sin pagar — ver en Equipo.
+          </p>
+        )}
+        {Number(r.mensajeria_pendiente) > 0 && (
+          <p className="text-sm text-yellow font-semibold">
+            ${n(r.mensajeria_pendiente)} que los mensajeros aún no han rendido — ver en Equipo.
+          </p>
+        )}
+        {Number(r.socios_pendientes) > 0 && (
+          <p className="text-sm text-yellow font-semibold">
+            ${n(r.socios_pendientes)} por liquidar a socios — ver en Equipo.
+          </p>
+        )}
+        {r.dia_cerrado_hoy && (
+          <p className="text-sm text-green-strong font-semibold">Hoy ya está cerrado.</p>
+        )}
+      </div>
 
       <p className="text-xs text-muted">Mes en curso · CUP y USD nunca se mezclan.</p>
     </div>

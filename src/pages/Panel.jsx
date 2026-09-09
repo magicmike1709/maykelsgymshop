@@ -5,13 +5,20 @@ import Matriculas from '../sections/Matriculas'
 import Nevera from '../sections/Nevera'
 import Vitrina from '../sections/Vitrina'
 import Gastos from '../sections/Gastos'
+import Equipo from '../sections/Equipo'
+import Cierre from '../sections/Cierre'
 
-const TABS = [
+const TABS_BASE = [
   { id: 'resumen', label: 'Resumen' },
   { id: 'matriculas', label: 'Matrículas' },
   { id: 'nevera', label: 'Nevera' },
   { id: 'vitrina', label: 'Vitrina' },
   { id: 'gastos', label: 'Gastos' }
+]
+
+const TABS_ADMIN = [
+  { id: 'equipo', label: 'Equipo' },
+  { id: 'cierre', label: 'Cierre' }
 ]
 
 export default function Panel() {
@@ -22,6 +29,8 @@ export default function Panel() {
     supabase.rpc('mi_perfil').then(({ data }) => setPerfil(data))
   }, [])
 
+  const tabs = perfil?.rol === 'admin' ? [...TABS_BASE, ...TABS_ADMIN] : TABS_BASE
+
   return (
     <div className="min-h-screen pb-20">
       <header className="border-b-[3px] border-green px-5 pt-6 pb-4">
@@ -31,7 +40,7 @@ export default function Panel() {
         </div>
         <div className="flex items-center justify-between">
           <h1 className="font-display font-bold uppercase text-2xl tracking-tight">
-            {TABS.find((t) => t.id === tab)?.label}
+            {tabs.find((t) => t.id === tab)?.label || 'Panel'}
           </h1>
           <button
             onClick={() => supabase.auth.signOut()}
@@ -49,15 +58,17 @@ export default function Panel() {
         {perfil && tab === 'nevera' && <Nevera perfil={perfil} />}
         {perfil && tab === 'vitrina' && <Vitrina perfil={perfil} />}
         {perfil && tab === 'gastos' && <Gastos perfil={perfil} />}
+        {perfil && tab === 'equipo' && perfil.rol === 'admin' && <Equipo />}
+        {perfil && tab === 'cierre' && perfil.rol === 'admin' && <Cierre />}
       </main>
 
-      <nav className="fixed bottom-0 inset-x-0 bg-surface border-t border-line flex">
-        {TABS.map((t) => (
+      <nav className="fixed bottom-0 inset-x-0 bg-surface border-t border-line flex overflow-x-auto">
+        {tabs.map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
             className={
-              'flex-1 py-3 text-[11px] font-semibold uppercase tracking-wide ' +
+              'flex-1 min-w-[64px] py-3 text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap px-1 ' +
               (tab === t.id ? 'text-green border-t-2 border-green -mt-px' : 'text-muted')
             }
           >

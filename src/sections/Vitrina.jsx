@@ -6,8 +6,13 @@ export default function Vitrina({ perfil }) {
   const [carrito, setCarrito] = useState({})
   const [resumen, setResumen] = useState(null)
   const [fiados, setFiados] = useState([])
+  const [gestores, setGestores] = useState([])
+  const [mensajeros, setMensajeros] = useState([])
   const [cliente, setCliente] = useState('')
   const [esFiado, setEsFiado] = useState(false)
+  const [gestorId, setGestorId] = useState('')
+  const [esMensajeria, setEsMensajeria] = useState(false)
+  const [mensajeroId, setMensajeroId] = useState('')
   const [mensaje, setMensaje] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [nuevo, setNuevo] = useState(false)
@@ -25,6 +30,10 @@ export default function Vitrina({ perfil }) {
     setResumen(r)
     const { data: f } = await supabase.rpc('fiados_lista')
     setFiados(f || [])
+    const { data: g } = await supabase.rpc('gestores_lista')
+    setGestores(g || [])
+    const { data: m } = await supabase.rpc('mensajeros_lista')
+    setMensajeros(m || [])
   }
 
   useEffect(() => {
@@ -55,11 +64,17 @@ export default function Vitrina({ perfil }) {
     setGuardando(true)
     const lineas = Object.entries(carrito).map(([producto_id, cantidad]) => ({ producto_id, cantidad }))
     const { error } = await supabase.rpc('venta_crear', {
-      p_lineas: lineas, p_cliente: cliente || null, p_telefono: null, p_es_fiado: esFiado
+      p_lineas: lineas,
+      p_cliente: cliente || null,
+      p_telefono: null,
+      p_es_fiado: esFiado,
+      p_gestor_id: gestorId || null,
+      p_es_mensajeria: esMensajeria,
+      p_mensajero_id: esMensajeria ? (mensajeroId || null) : null
     })
     setGuardando(false)
     if (error) return setMensaje('No se pudo cobrar: ' + error.message)
-    setCarrito({}); setCliente(''); setEsFiado(false)
+    setCarrito({}); setCliente(''); setEsFiado(false); setGestorId(''); setEsMensajeria(false); setMensajeroId('')
     setMensaje('Venta registrada.')
     cargar()
   }
@@ -117,14 +132,36 @@ export default function Vitrina({ perfil }) {
       </section>
 
       {totalCarrito > 0 && (
-        <div className="rounded-2xl border border-line bg-blue-soft p-4 shadow-sm sticky bottom-20 space-y-2">
+        <div className="rounded-2xl border border-line bg-blue-soft p-4 shadow-sm space-y-2">
           <input value={cliente} onChange={(e) => setCliente(e.target.value)} placeholder="Cliente (opcional)"
             className="w-full rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-blue" />
+
+          {gestores.length > 0 && (
+            <select value={gestorId} onChange={(e) => setGestorId(e.target.value)}
+              className="w-full rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-blue bg-surface">
+              <option value="">Sin gestor</option>
+              {gestores.map((g) => <option key={g.id} value={g.id}>{g.nombre} (comisión {(g.pct_comision * 100).toFixed(0)}%)</option>)}
+            </select>
+          )}
+
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={esFiado} onChange={(e) => setEsFiado(e.target.checked)} />
             Es fiado (no ha pagado)
           </label>
-          <div className="flex items-center justify-between">
+
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={esMensajeria} onChange={(e) => setEsMensajeria(e.target.checked)} />
+            Es mensajería (lo entrega un mensajero)
+          </label>
+          {esMensajeria && mensajeros.length > 0 && (
+            <select value={mensajeroId} onChange={(e) => setMensajeroId(e.target.value)}
+              className="w-full rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-blue bg-surface">
+              <option value="">Elige mensajero</option>
+              {mensajeros.map((m) => <option key={m.id} value={m.id}>{m.nombre}</option>)}
+            </select>
+          )}
+
+          <div className="flex items-center justify-between pt-1">
             <span className="text-sm font-semibold">Total</span>
             <span className="text-lg font-bold tabular-nums">${totalCarrito.toLocaleString('en-US')}</span>
           </div>
