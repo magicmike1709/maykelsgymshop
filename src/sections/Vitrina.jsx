@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../supabaseClient'
 
 export default function Vitrina() {
   const [almacenes, setAlmacenes] = useState([])
   const [almacenId, setAlmacenId] = useState('')
   const [productos, setProductos] = useState([])
+  const [busqueda, setBusqueda] = useState('')
   const [carrito, setCarrito] = useState({})
   const [resumen, setResumen] = useState(null)
   const [fiados, setFiados] = useState([])
@@ -44,6 +45,12 @@ export default function Vitrina() {
 
   useEffect(() => { cargarBase(); cargarResto() }, [])
   useEffect(() => { cargarProductosDelAlmacen(almacenId) }, [almacenId])
+
+  const productosFiltrados = useMemo(() => {
+    const q = busqueda.trim().toLowerCase()
+    if (!q) return productos
+    return productos.filter((p) => p.nombre.toLowerCase().includes(q) || (p.codigo || '').toLowerCase().includes(q))
+  }, [productos, busqueda])
 
   function tocar(p) {
     const enCarrito = carrito[p.id] || 0
@@ -120,19 +127,26 @@ export default function Vitrina() {
             </div>
           )}
         </div>
+        <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar producto…"
+          className="w-full mb-2 rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-blue" />
         {productos.length === 0 && <p className="text-sm text-muted">No hay stock en este almacén todavía — agrégalo desde Inventario.</p>}
         <div className="grid grid-cols-2 gap-2">
-          {productos.map((p) => (
+          {productosFiltrados.map((p) => (
             <button key={p.id} onClick={() => tocar(p)} disabled={p.stock <= 0}
-              className="text-left rounded-xl border border-line bg-surface px-3 py-3 shadow-sm active:bg-blue-soft disabled:opacity-40">
-              <div className="text-sm font-semibold">{p.nombre}</div>
-              <div className="text-xs text-muted tabular-nums">${Number(p.precio).toLocaleString('en-US')} · stock {p.stock}</div>
-              {carrito[p.id] > 0 && (
-                <div className="mt-1 flex items-center gap-2">
-                  <span className="text-xs font-bold text-blue">×{carrito[p.id]}</span>
-                  <button onClick={(e) => { e.stopPropagation(); quitar(p.id) }} className="text-xs text-red">quitar</button>
-                </div>
-              )}
+              className="text-left rounded-xl border border-line bg-surface px-3 py-3 shadow-sm active:bg-blue-soft disabled:opacity-40 flex gap-2.5 items-center">
+              {p.foto_url
+                ? <img src={p.foto_url} alt="" className="w-10 h-10 rounded-lg object-cover border border-line flex-shrink-0" />
+                : <div className="w-10 h-10 rounded-lg bg-sunken flex-shrink-0" />}
+              <div className="min-w-0">
+                <div className="text-sm font-semibold truncate">{p.nombre}</div>
+                <div className="text-xs text-muted tabular-nums">${Number(p.precio).toLocaleString('en-US')} · stock {p.stock}</div>
+                {carrito[p.id] > 0 && (
+                  <div className="mt-1 flex items-center gap-2">
+                    <span className="text-xs font-bold text-blue">×{carrito[p.id]}</span>
+                    <button onClick={(e) => { e.stopPropagation(); quitar(p.id) }} className="text-xs text-red">quitar</button>
+                  </div>
+                )}
+              </div>
             </button>
           ))}
         </div>

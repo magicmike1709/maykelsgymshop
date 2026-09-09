@@ -1,20 +1,24 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../supabaseClient'
 
 export default function Inventario({ perfil }) {
   const [resumen, setResumen] = useState(null)
   const [almacenes, setAlmacenes] = useState([])
   const [productos, setProductos] = useState([])
-  const [stockPorAlmacen, setStockPorAlmacen] = useState({}) // producto_id -> [{almacen_nombre, cantidad}]
-  const [entradas, setEntradas] = useState([])
+  const [busqueda, setBusqueda] = useState('')
+  const [abierto, setAbierto] = useState(null) // producto_id expandido
+  const [stockPorAlmacen, setStockPorAlmacen] = useState({})
+  const [entradasPorProducto, setEntradasPorProducto] = useState({})
 
   const [nuevo, setNuevo] = useState(false)
   const [nNombre, setNNombre] = useState('')
   const [nPrecio, setNPrecio] = useState('')
   const [nCosto, setNCosto] = useState('')
   const [nStock, setNStock] = useState('')
+  const [nFoto, setNFoto] = useState('')
 
   const [entradaAbierta, setEntradaAbierta] = useState(false)
+  const [eBusqueda, setEBusqueda] = useState('')
   const [eProductoId, setEProductoId] = useState('')
   const [eAlmacenId, setEAlmacenId] = useState('')
   const [eCantidad, setECantidad] = useState('')
@@ -25,16 +29,14 @@ export default function Inventario({ perfil }) {
   const puedeEditar = perfil?.rol === 'admin' || perfil?.rol === 'operador_plus'
 
   async function cargar() {
-    const [inv, alm, prod, ent] = await Promise.all([
+    const [inv, alm, prod] = await Promise.all([
       supabase.rpc('inventario_resumen'),
       supabase.rpc('almacenes_lista'),
-      supabase.rpc('productos_lista'),
-      supabase.rpc('entradas_lista')
+      supabase.rpc('productos_lista')
     ])
     setResumen(inv.data)
     setAlmacenes(alm.data || [])
     setProductos(prod.data || [])
-    setEntradas(ent.data || [])
     if ((alm.data || []).length > 0 && !eAlmacenId) {
       const principal = alm.data.find((a) => a.es_principal) || alm.data[0]
       setEAlmacenId(principal.id)
@@ -43,23 +45,40 @@ export default function Inventario({ perfil }) {
 
   useEffect(() => { cargar() }, [])
 
-  async function verStockPorAlmacen(productoId) {
-    if (stockPorAlmacen[productoId]) {
-      setStockPorAlmacen((s) => { const n = { ...s }; delete n[productoId]; return n })
-      return
+  const productosFiltrados = useMemo(() => {
+    const q = busqueda.trim().toLowerCase()
+    if (!q) return productos
+    return productos.filter((p) => p.nombre.toLowerCase().includes(q) || (p.codigo || '').toLowerCase().includes(q))
+  }, [productos, busqueda])
+
+  const productosParaEntrada = useMemo(() => {
+    const q = eBusqueda.trim().toLowerCase()
+    if (!q) return productos.slice(0, 8)
+    return productos.filter((p) => p.nombre.toLowerCase().includes(q) || (p.codigo || '').toLowerCase().includes(q)).slice(0, 8)
+  }, [productos, eBusqueda])
+
+  async function toggleProducto(producto) {
+    if (abierto === producto.id) { setAbierto(null); return }
+    setAbierto(producto.id)
+    if (!stockPorAlmacen[producto.id]) {
+      const { data } = await supabase.rpc('producto_stock_por_almacen', { p_producto_id: producto.id })
+      setStockPorAlmacen((s) => ({ ...s, [producto.id]: data || [] }))
     }
-    const { data } = await supabase.rpc('producto_stock_por_almacen', { p_producto_id: productoId })
-    setStockPorAlmacen((s) => ({ ...s, [productoId]: data || [] }))
+    if (!entradasPorProducto[producto.id]) {
+      const { data } = await supabase.rpc('entradas_lista', { p_producto_id: producto.id })
+      setEntradasPorProducto((s) => ({ ...s, [producto.id]: data || [] }))
+    }
   }
 
   async function guardarProducto(e) {
     e.preventDefault()
     if (!nNombre || !nPrecio || !nCosto) return
     const { error } = await supabase.rpc('producto_guardar', {
-      p_id: null, p_nombre: nNombre, p_precio: Number(nPrecio), p_costo: Number(nCosto), p_stock: Number(nStock || 0)
+      p_id: null, p_nombre: nNombre, p_precio: Number(nPrecio), p_costo: Number(nCosto),
+      p_stock: Number(nStock || 0), p_foto_url: nFoto || null
     })
     if (!error) {
-      setNNombre(''); setNPrecio(''); setNCosto(''); setNStock(''); setNuevo(false)
+      setNNombre(''); setNPrecio(''); setNCosto(''); setNStock(''); setNFoto(''); setNuevo(false)
       cargar()
     }
   }
@@ -75,9 +94,12 @@ export default function Inventario({ perfil }) {
     })
     if (error) return setEMensaje('No se pudo guardar: ' + error.message)
     setEMensaje('Entrada guardada. Costo promedio ahora: $' + Number(data.costo_nuevo).toFixed(2))
-    setECantidad(''); setECosto(''); setEProveedor('')
+    setECantidad(''); setECosto(''); setEProveedor(''); setEProductoId(''); setEBusqueda('')
+    setStockPorAlmacen({}); setEntradasPorProducto({})
     cargar()
   }
+
+  const productoElegido = productos.find((p) => p.id === eProductoId)
 
   return (
     <div className="space-y-5 pb-4">
@@ -103,11 +125,27 @@ export default function Inventario({ perfil }) {
             <button onClick={() => setEntradaAbierta(true)} className="text-sm font-semibold text-blue">+ Registrar entrada</button>
           ) : (
             <form onSubmit={registrarEntrada} className="space-y-2">
-              <select value={eProductoId} onChange={(e) => setEProductoId(e.target.value)}
-                className="w-full rounded-xl border border-line px-3 py-2.5 text-sm outline-none focus:border-blue bg-surface" required>
-                <option value="">Elige producto</option>
-                {productos.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-              </select>
+              {!productoElegido ? (
+                <div>
+                  <input value={eBusqueda} onChange={(e) => setEBusqueda(e.target.value)} placeholder="Buscar producto…"
+                    className="w-full rounded-xl border border-line px-3 py-2.5 text-sm outline-none focus:border-blue" />
+                  <div className="mt-1.5 max-h-48 overflow-y-auto rounded-xl border border-line divide-y divide-line">
+                    {productosParaEntrada.map((p) => (
+                      <button type="button" key={p.id} onClick={() => setEProductoId(p.id)}
+                        className="w-full text-left px-3 py-2 text-sm active:bg-blue-soft">
+                        {p.nombre}
+                      </button>
+                    ))}
+                    {productosParaEntrada.length === 0 && <p className="px-3 py-2 text-sm text-muted">Sin resultados.</p>}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between rounded-xl border border-line px-3 py-2.5 text-sm">
+                  <span className="font-semibold">{productoElegido.nombre}</span>
+                  <button type="button" onClick={() => { setEProductoId(''); setEBusqueda('') }} className="text-xs text-red">cambiar</button>
+                </div>
+              )}
+
               {almacenes.length > 1 && (
                 <select value={eAlmacenId} onChange={(e) => setEAlmacenId(e.target.value)}
                   className="w-full rounded-xl border border-line px-3 py-2.5 text-sm outline-none focus:border-blue bg-surface">
@@ -124,22 +162,10 @@ export default function Inventario({ perfil }) {
                 className="w-full rounded-xl border border-line px-3 py-2.5 text-sm outline-none focus:border-blue" />
               <div className="flex gap-2">
                 <button type="submit" className="flex-1 rounded-xl bg-blue text-white text-sm font-semibold py-2.5">Guardar entrada</button>
-                <button type="button" onClick={() => setEntradaAbierta(false)} className="text-sm text-muted px-3">Cancelar</button>
+                <button type="button" onClick={() => { setEntradaAbierta(false); setEProductoId(''); setEBusqueda('') }} className="text-sm text-muted px-3">Cancelar</button>
               </div>
               {eMensaje && <p className="text-xs text-muted">{eMensaje}</p>}
             </form>
-          )}
-
-          {entradas.length > 0 && (
-            <div className="mt-3 pt-3 border-t border-line space-y-1.5">
-              <p className="text-[11px] uppercase tracking-wide text-muted font-semibold">Últimas entradas</p>
-              {entradas.slice(0, 5).map((e) => (
-                <div key={e.id} className="text-xs flex justify-between text-muted">
-                  <span>{e.producto_nombre} · {e.almacen_nombre} · {e.fecha}</span>
-                  <span className="tabular-nums">+{e.cantidad} a ${Number(e.costo_unitario).toFixed(2)}</span>
-                </div>
-              ))}
-            </div>
           )}
         </section>
       )}
@@ -160,6 +186,8 @@ export default function Inventario({ perfil }) {
                 <input value={nStock} onChange={(e) => setNStock(e.target.value)} type="number" min="0" placeholder="Stock inicial"
                   className="w-full rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-blue" />
               </div>
+              <input value={nFoto} onChange={(e) => setNFoto(e.target.value)} placeholder="Enlace de la foto (opcional)"
+                className="w-full rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-blue" />
               <p className="text-xs text-muted">El stock inicial entra al almacén principal (Gym).</p>
               <div className="flex gap-2">
                 <button type="submit" className="flex-1 rounded-xl bg-blue text-white font-semibold py-2.5 text-sm">Guardar</button>
@@ -171,27 +199,54 @@ export default function Inventario({ perfil }) {
       )}
 
       <section>
-        <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-green-strong mb-2">Productos</h2>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-green-strong">Productos</h2>
+          <span className="text-xs text-muted">{productosFiltrados.length}</span>
+        </div>
+        <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar por nombre o código…"
+          className="w-full mb-2 rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-green" />
         <div className="space-y-2">
-          {productos.map((p) => (
-            <div key={p.id} className="rounded-xl border border-line bg-surface px-4 py-3">
-              <button onClick={() => verStockPorAlmacen(p.id)} className="w-full flex items-center justify-between text-left">
-                <div>
-                  <div className="text-sm font-semibold">{p.nombre}</div>
+          {productosFiltrados.map((p) => (
+            <div key={p.id} className="rounded-xl border border-line bg-surface overflow-hidden">
+              <button onClick={() => toggleProducto(p)} className="w-full flex items-center gap-3 px-3 py-3 text-left">
+                {p.foto_url
+                  ? <img src={p.foto_url} alt="" className="w-11 h-11 rounded-lg object-cover border border-line flex-shrink-0" />
+                  : <div className="w-11 h-11 rounded-lg bg-sunken flex-shrink-0" />}
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold truncate">{p.nombre}</div>
                   <div className="text-xs text-muted tabular-nums">${Number(p.precio).toLocaleString('en-US')} · costo ${Number(p.costo).toFixed(2)}</div>
                 </div>
                 <span className="text-sm font-bold tabular-nums">{p.stock}</span>
               </button>
-              {stockPorAlmacen[p.id] && (
-                <div className="mt-2 pt-2 border-t border-line flex gap-4">
-                  {stockPorAlmacen[p.id].map((s) => (
-                    <span key={s.almacen_id} className="text-xs text-muted">{s.almacen_nombre}: <b className="text-ink">{s.cantidad}</b></span>
-                  ))}
+              {abierto === p.id && (
+                <div className="px-3 pb-3 pt-1 border-t border-line space-y-3">
+                  {stockPorAlmacen[p.id] && (
+                    <div className="flex gap-4">
+                      {stockPorAlmacen[p.id].map((s) => (
+                        <span key={s.almacen_id} className="text-xs text-muted">{s.almacen_nombre}: <b className="text-ink">{s.cantidad}</b></span>
+                      ))}
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-[11px] uppercase tracking-wide text-muted font-semibold mb-1">Entradas de este producto</p>
+                    {entradasPorProducto[p.id]?.length > 0 ? (
+                      <div className="space-y-1">
+                        {entradasPorProducto[p.id].map((e) => (
+                          <div key={e.id} className="text-xs flex justify-between text-muted">
+                            <span>{e.fecha} · {e.almacen_nombre}{e.proveedor ? ' · ' + e.proveedor : ''}</span>
+                            <span className="tabular-nums">+{e.cantidad} a ${Number(e.costo_unitario).toFixed(2)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted">Sin entradas registradas todavía.</p>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
           ))}
-          {productos.length === 0 && <p className="text-sm text-muted">Sin productos todavía.</p>}
+          {productosFiltrados.length === 0 && <p className="text-sm text-muted">Sin resultados.</p>}
         </div>
       </section>
     </div>
