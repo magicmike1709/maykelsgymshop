@@ -35,6 +35,11 @@ export default function Resumen() {
           <span className="text-ink font-bold pt-2 border-t border-line mt-1">Neto CUP</span>
           <span className="text-right font-bold tabular-nums pt-2 border-t border-line mt-1">{n(r.cup.neto)}</span>
         </div>
+        {Number(r.cup.compras) > 0 && (
+          <p className="text-xs text-muted mt-2">
+            + {n(r.cup.compras)} CUP puestos en mercancía (no resta de la ganancia, ya está en el costo de lo vendido)
+          </p>
+        )}
       </section>
 
       <section className="rounded-2xl border border-line bg-blue-soft p-4 shadow-sm">
