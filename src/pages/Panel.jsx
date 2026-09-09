@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
 
+function hoy() {
+  return new Date().toISOString().slice(0, 10)
+}
+
 export default function Panel({ session }) {
   const [perfil, setPerfil] = useState(null)
   const [resumen, setResumen] = useState(null)
-  const [monto, setMonto] = useState('')
-  const [nombreCliente, setNombreCliente] = useState('')
+  const [fecha, setFecha] = useState(hoy())
+  const [pagos, setPagos] = useState('')
+  const [total, setTotal] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [mensaje, setMensaje] = useState('')
 
@@ -20,27 +25,34 @@ export default function Panel({ session }) {
     cargar()
   }, [])
 
-  async function registrarPago(e) {
-    e.preventDefault()
+  async function guardarResumen(e, reemplazar = false) {
+    e?.preventDefault()
     setMensaje('')
-    if (!monto) return
+    if (!pagos || !total) return
     setGuardando(true)
-    const { error } = await supabase.rpc('matricula_guardar', {
-      p_monto: Number(monto),
-      p_nombre: nombreCliente || null
+    const { data, error } = await supabase.rpc('matricula_dia_guardar', {
+      p_fecha: fecha,
+      p_pagos: Number(pagos),
+      p_total: Number(total),
+      p_reemplazar: reemplazar
     })
     setGuardando(false)
     if (error) {
       setMensaje('No se pudo guardar: ' + error.message)
-    } else {
-      setMonto('')
-      setNombreCliente('')
-      setMensaje('Pago registrado.')
-      cargar()
+      return
     }
+    if (data?.ok === false && data?.motivo === 'detalle_existente') {
+      setMensaje('Ese día ya tiene pagos cargados. ¿Reemplazar por este resumen?')
+      return
+    }
+    setPagos('')
+    setTotal('')
+    setMensaje('Guardado.')
+    cargar()
   }
 
   const puedeRegistrar = perfil?.rol === 'admin'
+  const hayConflicto = mensaje.startsWith('Ese día')
 
   return (
     <div className="min-h-screen pb-16">
@@ -85,41 +97,72 @@ export default function Panel({ session }) {
 
         {puedeRegistrar && (
           <section className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
-            <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-green-strong mb-3">
-              Registrar pago
+            <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-green-strong mb-1">
+              Resumen del día
             </h2>
-            <form onSubmit={registrarPago} className="space-y-3">
+            <p className="text-xs text-muted mb-3">
+              Cuántos pagaron y cuánto se cobró — como en tu resumen diario de siempre.
+            </p>
+            <form onSubmit={guardarResumen} className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-muted mb-1">Monto (CUP)</label>
+                <label className="block text-xs font-semibold text-muted mb-1">Fecha</label>
                 <input
-                  type="number"
-                  min="0"
-                  step="1"
+                  type="date"
                   required
-                  value={monto}
-                  onChange={(e) => setMonto(e.target.value)}
+                  value={fecha}
+                  onChange={(e) => setFecha(e.target.value)}
                   className="w-full rounded-xl border border-line px-4 py-3 text-base outline-none focus:border-green"
-                  placeholder="6700"
                 />
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-muted mb-1">Cliente (opcional)</label>
-                <input
-                  type="text"
-                  value={nombreCliente}
-                  onChange={(e) => setNombreCliente(e.target.value)}
-                  className="w-full rounded-xl border border-line px-4 py-3 text-base outline-none focus:border-green"
-                  placeholder="Nombre"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-muted mb-1">Cuántos pagaron</label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    required
+                    value={pagos}
+                    onChange={(e) => setPagos(e.target.value)}
+                    className="w-full rounded-xl border border-line px-4 py-3 text-base outline-none focus:border-green"
+                    placeholder="47"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-muted mb-1">Total (CUP)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    required
+                    value={total}
+                    onChange={(e) => setTotal(e.target.value)}
+                    className="w-full rounded-xl border border-line px-4 py-3 text-base outline-none focus:border-green"
+                    placeholder="246800"
+                  />
+                </div>
               </div>
               <button
                 type="submit"
                 disabled={guardando}
                 className="w-full rounded-xl bg-green text-white font-semibold py-3 disabled:opacity-60"
               >
-                {guardando ? 'Guardando…' : 'Guardar pago'}
+                {guardando ? 'Guardando…' : 'Guardar resumen del día'}
               </button>
-              {mensaje && <p className="text-sm text-muted">{mensaje}</p>}
+              {mensaje && (
+                <div className="text-sm">
+                  <p className={hayConflicto ? 'text-yellow' : 'text-muted'}>{mensaje}</p>
+                  {hayConflicto && (
+                    <button
+                      type="button"
+                      onClick={(e) => guardarResumen(e, true)}
+                      className="mt-2 text-xs font-semibold text-red border border-red rounded-full px-3 py-1.5"
+                    >
+                      Sí, reemplazar
+                    </button>
+                  )}
+                </div>
+              )}
             </form>
           </section>
         )}
