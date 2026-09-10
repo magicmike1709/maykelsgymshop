@@ -200,6 +200,55 @@ function Comparar() {
   )
 }
 
+function PanelHoy() {
+  const [hoy, setHoy] = useState(null)
+
+  useEffect(() => {
+    supabase.rpc('panel_hoy').then(({ data }) => setHoy(data))
+  }, [])
+
+  if (!hoy) return null
+
+  const a = hoy.alertas
+  const tieneAlertas = a.descuadres > 0 || a.sin_conteo > 0 || a.clientes_sin_renovar > 0 || a.avisos_activos > 0
+
+  return (
+    <section className="rounded-2xl border border-line bg-surface p-4 shadow-sm space-y-3">
+      <h2 className="font-display text-xs font-semibold uppercase tracking-wide text-muted">Hoy</h2>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-muted font-semibold">Ayer · CUP</div>
+          <div className="text-lg font-bold tabular-nums text-green-strong">{n(hoy.ayer.cup.neto)}</div>
+        </div>
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-muted font-semibold">Ayer · USD</div>
+          <div className="text-lg font-bold tabular-nums text-blue">${n(hoy.ayer.usd.neto)}</div>
+        </div>
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-muted font-semibold">Proyección mes · CUP</div>
+          <div className="text-lg font-bold tabular-nums">{n(hoy.proyeccion.neto_cup_proyectado)}</div>
+        </div>
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-muted font-semibold">Proyección mes · USD</div>
+          <div className="text-lg font-bold tabular-nums">${n(hoy.proyeccion.neto_usd_proyectado)}</div>
+        </div>
+      </div>
+
+      {tieneAlertas ? (
+        <div className="space-y-1 pt-1 border-t border-line">
+          {a.descuadres > 0 && <p className="text-xs text-red font-semibold">⚠️ {a.descuadres} descuadre{a.descuadres === 1 ? '' : 's'} de caja (30 días)</p>}
+          {a.sin_conteo > 0 && <p className="text-xs text-yellow font-semibold">{a.sin_conteo} cierre{a.sin_conteo === 1 ? '' : 's'} sin contar caja</p>}
+          {a.clientes_sin_renovar > 0 && <p className="text-xs text-yellow font-semibold">{a.clientes_sin_renovar} cliente{a.clientes_sin_renovar === 1 ? '' : 's'} sin renovar este mes</p>}
+          {a.avisos_activos > 0 && <p className="text-xs text-yellow font-semibold">{a.avisos_activos} aviso{a.avisos_activos === 1 ? '' : 's'} activo{a.avisos_activos === 1 ? '' : 's'} (stock bajo, etc.)</p>}
+        </div>
+      ) : (
+        <p className="text-xs text-green-strong font-semibold pt-1 border-t border-line">Sin alertas activas.</p>
+      )}
+    </section>
+  )
+}
+
 export default function Resumen() {
   const [vista, setVista] = useState('resumen') // resumen | comparar
   const [periodo, setPeriodo] = useState('mes')
@@ -240,14 +289,15 @@ export default function Resumen() {
   if (vista === 'comparar') {
     return (
       <div className="space-y-6 pb-4">
+        <PanelHoy />
         {tabsVista}
         <Comparar />
       </div>
     )
   }
 
-  if (error) return <div className="space-y-6 pb-4">{tabsVista}<p className="text-sm text-muted">{error}</p></div>
-  if (!r) return <div className="space-y-6 pb-4">{tabsVista}<p className="text-sm text-muted">Cargando…</p></div>
+  if (error) return <div className="space-y-6 pb-4"><PanelHoy />{tabsVista}<p className="text-sm text-muted">{error}</p></div>
+  if (!r) return <div className="space-y-6 pb-4"><PanelHoy />{tabsVista}<p className="text-sm text-muted">Cargando…</p></div>
 
   function compartir() {
     const url = 'https://wa.me/?text=' + encodeURIComponent(textoWhatsapp(periodo, r, mes, anio))
@@ -258,6 +308,7 @@ export default function Resumen() {
 
   return (
     <div className="space-y-6 pb-4">
+      <PanelHoy />
       {tabsVista}
       <div className="flex gap-1.5">
         {PERIODOS.map((p) => (
