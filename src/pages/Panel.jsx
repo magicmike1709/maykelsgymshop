@@ -36,6 +36,16 @@ const TABS_ADMIN = [
   { id: 'actividad', label: 'Actividad' }
 ]
 
+// Agrupa las mismas pestañas de arriba solo para el menú, así el
+// dueño no ve 11 renglones sueltos sino unos pocos bloques.
+const GRUPOS_MENU = [
+  { titulo: 'Negocio', ids: ['resumen'] },
+  { titulo: 'Clientes', ids: ['matriculas', 'avisos'] },
+  { titulo: 'Ventas', ids: ['nevera', 'vitrina', 'inventario'] },
+  { titulo: 'Finanzas', ids: ['gastos'] },
+  { titulo: 'Administración', ids: ['equipo', 'cierre', 'fondos', 'actividad'] }
+]
+
 export default function Panel() {
   const [perfil, setPerfil] = useState(null)
   const [tab, setTab] = useState('resumen')
@@ -46,6 +56,10 @@ export default function Panel() {
   }, [])
 
   const tabs = perfil?.rol === 'admin' ? [...TABS_BASE, ...TABS_ADMIN] : TABS_BASE
+  const tabsPorId = Object.fromEntries(tabs.map((t) => [t.id, t]))
+  const grupos = GRUPOS_MENU
+    .map((g) => ({ titulo: g.titulo, items: g.ids.map((id) => tabsPorId[id]).filter(Boolean) }))
+    .filter((g) => g.items.length > 0)
 
   function elegir(id) {
     setTab(id)
@@ -114,17 +128,22 @@ export default function Panel() {
             <div className="text-sm text-muted">{perfil?.rol_nombre}</div>
           </div>
           <div className="flex-1 overflow-y-auto py-2 px-2">
-            {tabs.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => elegir(t.id)}
-                className={
-                  'w-full text-left px-4 py-3 my-0.5 rounded-xl text-sm font-semibold ' +
-                  (tab === t.id ? 'text-white bg-green' : 'text-ink active:bg-sunken')
-                }
-              >
-                {t.label}
-              </button>
+            {grupos.map((g) => (
+              <div key={g.titulo} className="mb-2">
+                <div className="px-4 pt-2 pb-1 text-[10px] font-bold uppercase tracking-widest text-muted">{g.titulo}</div>
+                {g.items.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => elegir(t.id)}
+                    className={
+                      'w-full text-left px-4 py-3 my-0.5 rounded-xl text-sm font-semibold ' +
+                      (tab === t.id ? 'text-white bg-green' : 'text-ink active:bg-sunken')
+                    }
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
             ))}
           </div>
           <button
