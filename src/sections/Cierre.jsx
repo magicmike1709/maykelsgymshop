@@ -20,12 +20,15 @@ export default function Cierre() {
   const [cerrando, setCerrando] = useState(false)
   const [cajaContada, setCajaContada] = useState('')
   const [conteoAbierto, setConteoAbierto] = useState(null) // dia para el que se está contando
+  const [alerta, setAlerta] = useState(null)
 
   async function cargar() {
     const { data: r } = await supabase.rpc('panel_resumen')
     setResumenHoy(r)
     const { data: h } = await supabase.rpc('cierres_lista')
     setHistorial(h || [])
+    const { data: a } = await supabase.rpc('descuadres_alerta')
+    setAlerta(a)
   }
 
   useEffect(() => {
@@ -60,6 +63,21 @@ export default function Cierre() {
 
   return (
     <div className="space-y-5 pb-4">
+      {alerta && (alerta.con_descuadre > 0 || alerta.sin_conteo > 0) && (
+        <section className="rounded-2xl border border-red bg-red-soft p-4">
+          <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-red mb-1">Alerta de caja · últimos {alerta.dias} días</h2>
+          {alerta.con_descuadre > 0 && (
+            <p className="text-sm text-red font-semibold">
+              {alerta.con_descuadre} cierre{alerta.con_descuadre === 1 ? '' : 's'} con descuadre · total {alerta.total_descuadre > 0 ? '+' : ''}{n(alerta.total_descuadre)} CUP
+              {Number(alerta.peor_descuadre) < 0 && <> · peor caso {n(alerta.peor_descuadre)} CUP</>}
+            </p>
+          )}
+          {alerta.sin_conteo > 0 && (
+            <p className="text-sm text-yellow font-semibold mt-1">{alerta.sin_conteo} cierre{alerta.sin_conteo === 1 ? '' : 's'} sin conteo de caja registrado.</p>
+          )}
+        </section>
+      )}
+
       <section className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
         <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-green-strong mb-1">Hoy</h2>
         {hoyCerrado && <p className="text-sm text-yellow font-semibold mb-2">Ya cerraste el día de hoy.</p>}
