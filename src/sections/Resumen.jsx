@@ -118,6 +118,97 @@ function ComparativaFila({ label, actual, anterior, prefijo = '' }) {
   )
 }
 
+function Tendencia() {
+  const [meses, setMeses] = useState(null)
+
+  useEffect(() => {
+    supabase.rpc('panel_tendencia_meses', { p_meses: 6 }).then(({ data }) => setMeses(data))
+  }, [])
+
+  if (!meses || meses.length === 0) return null
+
+  const maxCup = Math.max(1, ...meses.map((m) => Math.abs(Number(m.neto_cup))))
+  const maxUsd = Math.max(1, ...meses.map((m) => Math.abs(Number(m.neto_usd))))
+
+  return (
+    <section>
+      <h2 className="font-display text-xs font-semibold uppercase tracking-wide mb-2 text-green-strong">
+        Tendencia · últimos {meses.length} meses
+      </h2>
+      <div className="space-y-2">
+        {meses.map((m) => (
+          <div key={m.mes} className="rounded-xl border border-line bg-surface px-3 py-2">
+            <div className="flex items-center justify-between text-xs font-semibold mb-1">
+              <span>{m.mes}</span>
+              <span className="tabular-nums">
+                <span className="text-green-strong">{n(m.neto_cup)} CUP</span>
+                <span className="text-muted"> · </span>
+                <span className="text-blue">${n(m.neto_usd)}</span>
+              </span>
+            </div>
+            <div className="flex gap-1 h-1.5">
+              <div className="flex-1 rounded-full bg-sunken overflow-hidden">
+                <div className="h-full bg-green-strong rounded-full" style={{ width: Math.max(4, Math.abs(Number(m.neto_cup)) / maxCup * 100) + '%' }} />
+              </div>
+              <div className="flex-1 rounded-full bg-sunken overflow-hidden">
+                <div className="h-full bg-blue rounded-full" style={{ width: Math.max(4, Math.abs(Number(m.neto_usd)) / maxUsd * 100) + '%' }} />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function Exportar() {
+  const [desde, setDesde] = useState(`${MES_ACTUAL}-01`)
+  const [hasta, setHasta] = useState(fmtDate(new Date()))
+  const [exportando, setExportando] = useState(false)
+
+  async function exportar() {
+    setExportando(true)
+    const { data, error } = await supabase.rpc('exportar_datos', { p_desde: desde, p_hasta: hasta })
+    setExportando(false)
+    if (error || !data) return
+    const filas = [['Fecha', 'Línea', 'Moneda', 'Total', 'Costo', 'Ganancia', 'Detalle']]
+    for (const f of data) {
+      filas.push([f.fecha, f.linea, f.moneda, f.total, f.costo ?? '', f.ganancia, (f.detalle || '').replace(/[\r\n,]/g, ' ')])
+    }
+    const csv = filas.map((fila) => fila.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `maykelsgym_${desde}_a_${hasta}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  return (
+    <section className="rounded-2xl border border-line bg-surface p-4 shadow-sm space-y-3">
+      <h2 className="font-display text-xs font-semibold uppercase tracking-wide text-green-strong">Exportar datos</h2>
+      <p className="text-xs text-muted">Descarga un respaldo en Excel/CSV de matrículas, nevera, vitrina y gastos del rango elegido — para guardar aparte de la app.</p>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="block text-[11px] font-semibold text-muted mb-1">Desde</label>
+          <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)}
+            className="w-full rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-green" />
+        </div>
+        <div>
+          <label className="block text-[11px] font-semibold text-muted mb-1">Hasta</label>
+          <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)}
+            className="w-full rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-green" />
+        </div>
+      </div>
+      <button onClick={exportar} disabled={exportando}
+        className="w-full rounded-xl bg-green text-white font-semibold py-2.5 text-sm disabled:opacity-60">
+        {exportando ? 'Generando…' : 'Descargar CSV'}
+      </button>
+    </section>
+  )
+}
+
 function Comparar() {
   const [tipo, setTipo] = useState('semana')
   const [comp, setComp] = useState(null)
@@ -196,6 +287,9 @@ function Comparar() {
           </div>
         </section>
       )}
+
+      <Tendencia />
+      <Exportar />
     </div>
   )
 }
@@ -352,6 +446,9 @@ export default function Resumen() {
         <Tile label="Neto CUP" value={n(r.cup.neto)} tono="text-green-strong" />
         <Tile label="En mercancía" value={n(r.cup.compras)} sub="no resta" />
       </Grupo>
+      <p className="text-[11px] text-muted -mt-4">
+        "En mercancía" es plata que gastaste comprando para vender (inventario) — no es una pérdida, por eso no se resta del Neto.
+      </p>
 
       <Grupo titulo="Vitrina · USD" tono="text-blue">
         <Tile label="Ventas" value={r.usd.vitrina_ventas_count} />
@@ -374,7 +471,10 @@ export default function Resumen() {
         </Grupo>
       )}
 
-      <Grupo titulo="Pendientes" tono="text-yellow">
+      <div className="border-t border-line pt-1">
+        <p className="text-[11px] text-muted mb-1">Lo de abajo es dinero que <b>todavía no es tuyo</b> — te lo deben. No está sumado en el Neto de arriba.</p>
+      </div>
+      <Grupo titulo="Pendientes por cobrar" tono="text-yellow">
         <Tile label="Fiados" value={r.fiados_pendientes} tono={r.fiados_pendientes > 0 ? 'text-red' : 'text-ink'} />
         <Tile label="Comisiones" value={'$' + n(r.comisiones_pendientes)} tono={Number(r.comisiones_pendientes) > 0 ? 'text-red' : 'text-ink'} />
         <Tile label="Mensajería" value={'$' + n(r.mensajeria_pendiente)} tono={Number(r.mensajeria_pendiente) > 0 ? 'text-red' : 'text-ink'} />
