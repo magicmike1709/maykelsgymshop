@@ -115,6 +115,12 @@ export default function Vitrina() {
     if (!error) cargarResto()
   }
 
+  function compartirCatalogo() {
+    const url = window.location.origin + '/catalogo'
+    const texto = `🏋️ Catálogo Maykel's Gym Shop\nPrecios en USD, disponibilidad al momento.\n${url}`
+    window.open('https://wa.me/?text=' + encodeURIComponent(texto), '_blank')
+  }
+
   return (
     <div className="space-y-5 pb-28">
       <div className="grid grid-cols-2 gap-3">
@@ -129,6 +135,11 @@ export default function Vitrina() {
           <div className="text-xs text-muted">este mes</div>
         </div>
       </div>
+
+      <button onClick={compartirCatalogo}
+        className="w-full rounded-xl border border-blue text-blue font-semibold py-2.5 text-sm">
+        Compartir catálogo por WhatsApp
+      </button>
 
       <section>
         <div className="flex items-center justify-between mb-2">

@@ -87,7 +87,121 @@ const hoyRef = new Date()
 const MES_ACTUAL = `${hoyRef.getFullYear()}-${String(hoyRef.getMonth() + 1).padStart(2, '0')}`
 const ANIO_ACTUAL = String(hoyRef.getFullYear())
 
+function variacion(actualStr, anteriorStr) {
+  const actual = Number(actualStr || 0)
+  const anterior = Number(anteriorStr || 0)
+  if (anterior === 0) return actual === 0 ? 0 : null
+  return ((actual - anterior) / Math.abs(anterior)) * 100
+}
+
+function Flecha({ pct }) {
+  if (pct === null) return <span className="text-muted">—</span>
+  const subiendo = pct >= 0
+  return (
+    <span className={'font-semibold ' + (subiendo ? 'text-green-strong' : 'text-red')}>
+      {subiendo ? '▲' : '▼'} {Math.abs(pct).toFixed(0)}%
+    </span>
+  )
+}
+
+function ComparativaFila({ label, actual, anterior, prefijo = '' }) {
+  return (
+    <div className="flex items-center justify-between rounded-xl border border-line bg-surface px-4 py-2.5 text-sm">
+      <span className="font-semibold">{label}</span>
+      <div className="flex items-center gap-2 tabular-nums">
+        <span className="text-muted">{prefijo}{n(anterior)}</span>
+        <span className="text-muted">→</span>
+        <span className="font-semibold">{prefijo}{n(actual)}</span>
+        <Flecha pct={variacion(actual, anterior)} />
+      </div>
+    </div>
+  )
+}
+
+function Comparar() {
+  const [tipo, setTipo] = useState('semana')
+  const [comp, setComp] = useState(null)
+  const [margenes, setMargenes] = useState(null)
+  const [proyeccion, setProyeccion] = useState(null)
+
+  useEffect(() => {
+    supabase.rpc('panel_comparativo', { p_tipo: tipo }).then(({ data }) => setComp(data))
+  }, [tipo])
+
+  useEffect(() => {
+    const { desde, hasta } = rango('mes', MES_ACTUAL, ANIO_ACTUAL)
+    supabase.rpc('panel_margen_categorias', { p_desde: desde, p_hasta: hasta }).then(({ data }) => setMargenes(data))
+    supabase.rpc('panel_proyeccion_mes').then(({ data }) => setProyeccion(data))
+  }, [])
+
+  return (
+    <div className="space-y-6 pb-4">
+      <div className="flex gap-1.5">
+        {[{ id: 'semana', label: 'Semana vs semana' }, { id: 'mes', label: 'Mes vs mes' }].map((t) => (
+          <button key={t.id} onClick={() => setTipo(t.id)}
+            className={'flex-1 py-2 rounded-full text-xs font-semibold border ' +
+              (tipo === t.id ? 'bg-green text-white border-green' : 'border-line text-muted')}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {!comp ? <p className="text-sm text-muted">Cargando…</p> : (
+        <section>
+          <h2 className="font-display text-xs font-semibold uppercase tracking-wide mb-2 text-green-strong">
+            {comp.actual.desde} → {comp.actual.hasta} vs. período anterior
+          </h2>
+          <div className="space-y-1.5">
+            <ComparativaFila label="Neto CUP" actual={comp.actual.cup.neto} anterior={comp.anterior.cup.neto} />
+            <ComparativaFila label="Neto USD" actual={comp.actual.usd.neto} anterior={comp.anterior.usd.neto} prefijo="$" />
+            <ComparativaFila label="Matrículas" actual={comp.actual.cup.matriculas} anterior={comp.anterior.cup.matriculas} />
+            <ComparativaFila label="Ventas nevera" actual={comp.actual.cup.nevera_ventas} anterior={comp.anterior.cup.nevera_ventas} />
+            <ComparativaFila label="Ventas vitrina" actual={comp.actual.usd.vitrina_ventas} anterior={comp.anterior.usd.vitrina_ventas} prefijo="$" />
+          </div>
+        </section>
+      )}
+
+      {proyeccion && (
+        <section>
+          <h2 className="font-display text-xs font-semibold uppercase tracking-wide mb-2 text-yellow">
+            Proyección de cierre de mes (día {proyeccion.dias_transcurridos} de {proyeccion.dias_mes})
+          </h2>
+          <div className="grid grid-cols-2 gap-2">
+            <Tile label="Neto CUP hoy" value={n(proyeccion.neto_cup_actual)} />
+            <Tile label="Proyectado CUP" value={n(proyeccion.neto_cup_proyectado)} tono="text-green-strong" />
+            <Tile label="Neto USD hoy" value={'$' + n(proyeccion.neto_usd_actual)} />
+            <Tile label="Proyectado USD" value={'$' + n(proyeccion.neto_usd_proyectado)} tono="text-blue" />
+          </div>
+        </section>
+      )}
+
+      {margenes && (
+        <section>
+          <h2 className="font-display text-xs font-semibold uppercase tracking-wide mb-2 text-green-strong">
+            Margen por categoría · este mes
+          </h2>
+          {margenes.length === 0 && <p className="text-sm text-muted">Sin ventas por categoría este mes.</p>}
+          <div className="space-y-1.5">
+            {margenes.map((m, i) => (
+              <div key={i} className="flex items-center justify-between rounded-xl border border-line bg-surface px-4 py-2.5 text-sm">
+                <span className="font-semibold">{m.categoria} <span className="text-muted font-normal">({m.moneda})</span></span>
+                <span className="tabular-nums">
+                  <span className={m.moneda === 'USD' ? 'text-blue' : 'text-green-strong'}>
+                    {m.moneda === 'USD' ? '$' : ''}{n(m.ganancia)}
+                  </span>
+                  <span className="text-muted"> · {m.margen_pct}%</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+  )
+}
+
 export default function Resumen() {
+  const [vista, setVista] = useState('resumen') // resumen | comparar
   const [periodo, setPeriodo] = useState('mes')
   const [mes, setMes] = useState(MES_ACTUAL)
   const [anio, setAnio] = useState(ANIO_ACTUAL)
@@ -107,8 +221,30 @@ export default function Resumen() {
     })
   }, [periodo, mes, anio])
 
-  if (error) return <p className="text-sm text-muted">{error}</p>
-  if (!r) return <p className="text-sm text-muted">Cargando…</p>
+  const tabsVista = (
+    <div className="flex gap-1.5">
+      <button onClick={() => setVista('resumen')}
+        className={'flex-1 py-2 rounded-full text-xs font-semibold border ' + (vista === 'resumen' ? 'bg-green text-white border-green' : 'border-line text-muted')}>
+        Resumen
+      </button>
+      <button onClick={() => setVista('comparar')}
+        className={'flex-1 py-2 rounded-full text-xs font-semibold border ' + (vista === 'comparar' ? 'bg-green text-white border-green' : 'border-line text-muted')}>
+        Comparar
+      </button>
+    </div>
+  )
+
+  if (vista === 'comparar') {
+    return (
+      <div className="space-y-6 pb-4">
+        {tabsVista}
+        <Comparar />
+      </div>
+    )
+  }
+
+  if (error) return <div className="space-y-6 pb-4">{tabsVista}<p className="text-sm text-muted">{error}</p></div>
+  if (!r) return <div className="space-y-6 pb-4">{tabsVista}<p className="text-sm text-muted">Cargando…</p></div>
 
   function compartir() {
     const url = 'https://wa.me/?text=' + encodeURIComponent(textoWhatsapp(periodo, r, mes, anio))
@@ -119,6 +255,7 @@ export default function Resumen() {
 
   return (
     <div className="space-y-6 pb-4">
+      {tabsVista}
       <div className="flex gap-1.5">
         {PERIODOS.map((p) => (
           <button key={p.id} onClick={() => setPeriodo(p.id)}

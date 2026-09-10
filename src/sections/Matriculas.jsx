@@ -286,6 +286,8 @@ function ClientesGym({ perfil }) {
   const [stats, setStats] = useState(null)
   const [refrescar, setRefrescar] = useState(0)
 
+  const [sinRenovar, setSinRenovar] = useState(null)
+
   useEffect(() => {
     supabase.rpc('clientes_meses_disponibles').then(({ data }) => {
       setMeses(data || [])
@@ -315,6 +317,11 @@ function ClientesGym({ perfil }) {
     supabase.rpc('clientes_estadisticas_mes', { p_mes: mesElegido }).then(({ data }) => setStats(data))
   }, [sub, mesElegido, refrescar])
 
+  useEffect(() => {
+    if (sub !== 'recordar') return
+    supabase.rpc('clientes_no_renovaron').then(({ data }) => setSinRenovar(data || []))
+  }, [sub, refrescar])
+
   async function abrir(id) {
     if (abierto === id) { setAbierto(null); return }
     setAbierto(id)
@@ -327,7 +334,7 @@ function ClientesGym({ perfil }) {
   return (
     <div className="space-y-4">
       <div className="flex gap-1.5">
-        {[{ id: 'directorio', label: 'Directorio' }, { id: 'buscar', label: 'Buscar' }, { id: 'estadisticas', label: 'Estadísticas' }].map((s) => (
+        {[{ id: 'directorio', label: 'Directorio' }, { id: 'buscar', label: 'Buscar' }, { id: 'estadisticas', label: 'Estadísticas' }, { id: 'recordar', label: 'Recordar' }].map((s) => (
           <button key={s.id} onClick={() => setSub(s.id)}
             className={'flex-1 py-1.5 rounded-full text-xs font-semibold border ' + (sub === s.id ? 'bg-yellow text-ink border-yellow' : 'border-line text-muted')}>
             {s.label}
@@ -431,6 +438,50 @@ function ClientesGym({ perfil }) {
           )}
         </div>
       )}
+
+      {sub === 'recordar' && <Recordar lista={sinRenovar} />}
+    </div>
+  )
+}
+
+function telefonoWa(telefono) {
+  const digitos = (telefono || '').replace(/\D/g, '')
+  if (!digitos) return null
+  return digitos.startsWith('53') ? digitos : '53' + digitos
+}
+
+function Recordar({ lista }) {
+  if (lista === null) return <p className="text-sm text-muted">Cargando…</p>
+  if (lista.length === 0) {
+    return <p className="text-sm text-muted">Nadie pendiente: todos los que pagaron el mes pasado ya pagaron este mes (o no hay datos del mes pasado).</p>
+  }
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-muted">
+        Pagaron en {mesLabel(lista[0].mes_anterior)} y todavía no pagan este mes. Un mensaje a tiempo evita que se pierdan.
+      </p>
+      <div className="space-y-1.5">
+        {lista.map((c) => {
+          const wa = telefonoWa(c.telefono)
+          const texto = `Hola ${c.nombre.split(' ')[0]}! 👋 Somos Maykel's Gym. Vimos que todavía no has renovado tu matrícula de este mes. ¿Te esperamos esta semana? 💪`
+          return (
+            <div key={c.id} className="flex items-center justify-between rounded-xl border border-line bg-surface px-4 py-3">
+              <div>
+                <div className="text-sm font-semibold">{c.nombre}</div>
+                <div className="text-xs text-muted">{c.telefono || 'sin teléfono'}{c.entrenador ? ` · ${c.entrenador}` : ''}</div>
+              </div>
+              {wa ? (
+                <a href={'https://wa.me/' + wa + '?text=' + encodeURIComponent(texto)} target="_blank" rel="noreferrer"
+                  className="text-xs font-semibold text-green-strong border border-green rounded-full px-3 py-1.5 whitespace-nowrap">
+                  WhatsApp
+                </a>
+              ) : (
+                <span className="text-xs text-muted">sin teléfono</span>
+              )}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
