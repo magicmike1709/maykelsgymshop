@@ -9,6 +9,7 @@ export default function Inventario({ perfil }) {
   const [abierto, setAbierto] = useState(null) // producto_id expandido
   const [stockPorAlmacen, setStockPorAlmacen] = useState({})
   const [entradasPorProducto, setEntradasPorProducto] = useState({})
+  const [precioHistPorProducto, setPrecioHistPorProducto] = useState({})
 
   const [nuevo, setNuevo] = useState(false)
   const [nNombre, setNNombre] = useState('')
@@ -95,6 +96,10 @@ export default function Inventario({ perfil }) {
     if (!entradasPorProducto[producto.id]) {
       const { data } = await supabase.rpc('entradas_lista', { p_producto_id: producto.id })
       setEntradasPorProducto((s) => ({ ...s, [producto.id]: data || [] }))
+    }
+    if (!precioHistPorProducto[producto.id]) {
+      const { data } = await supabase.rpc('producto_precio_historial', { p_producto_id: producto.id })
+      setPrecioHistPorProducto((s) => ({ ...s, [producto.id]: data || [] }))
     }
   }
 
@@ -429,6 +434,29 @@ export default function Inventario({ perfil }) {
                       </div>
                     ) : (
                       <p className="text-xs text-muted">Sin entradas registradas todavía.</p>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase tracking-wide text-muted font-semibold mb-1">Historial de precios</p>
+                    {precioHistPorProducto[p.id]?.length > 0 ? (
+                      <div className="space-y-1">
+                        {precioHistPorProducto[p.id].map((h) => (
+                          <div key={h.id} className="text-xs flex justify-between text-muted">
+                            <span>{new Date(h.creado_en).toLocaleDateString('es-CU')}</span>
+                            <span className="tabular-nums">
+                              {h.precio_anterior === null ? (
+                                <>precio inicial ${Number(h.precio_nuevo).toFixed(2)}</>
+                              ) : (
+                                <>${Number(h.precio_anterior).toFixed(2)} → ${Number(h.precio_nuevo).toFixed(2)}
+                                  {Number(h.costo_anterior) !== Number(h.costo_nuevo) && ` · costo $${Number(h.costo_anterior).toFixed(2)} → $${Number(h.costo_nuevo).toFixed(2)}`}
+                                </>
+                              )}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted">Sin cambios de precio registrados.</p>
                     )}
                   </div>
                 </div>

@@ -208,16 +208,19 @@ export default function Resumen() {
   const [r, setR] = useState(null)
   const [inv, setInv] = useState(null)
   const [error, setError] = useState('')
+  const [alerta, setAlerta] = useState(null)
 
   useEffect(() => {
     const { desde, hasta } = rango(periodo, mes, anio)
     Promise.all([
       supabase.rpc('panel_resumen', { p_desde: desde, p_hasta: hasta }),
-      supabase.rpc('inventario_resumen')
-    ]).then(([res, invRes]) => {
+      supabase.rpc('inventario_resumen'),
+      supabase.rpc('descuadres_alerta')
+    ]).then(([res, invRes, alertaRes]) => {
       if (res.error) setError('Tu usuario no ve la contabilidad completa.')
       else setR(res.data)
       setInv(invRes.data)
+      setAlerta(alertaRes.data)
     })
   }, [periodo, mes, anio])
 
@@ -326,6 +329,14 @@ export default function Resumen() {
         <Tile label="Mensajería" value={'$' + n(r.mensajeria_pendiente)} tono={Number(r.mensajeria_pendiente) > 0 ? 'text-red' : 'text-ink'} />
         <Tile label="Socios" value={'$' + n(r.socios_pendientes)} tono={Number(r.socios_pendientes) > 0 ? 'text-red' : 'text-ink'} />
       </Grupo>
+
+      {alerta && (alerta.con_descuadre > 0 || alerta.sin_conteo > 0) && (
+        <div className="rounded-xl border border-red bg-red-soft px-4 py-2.5 text-sm text-red font-semibold">
+          {alerta.con_descuadre > 0 && <>⚠️ {alerta.con_descuadre} descuadre{alerta.con_descuadre === 1 ? '' : 's'} de caja en {alerta.dias} días</>}
+          {alerta.con_descuadre > 0 && alerta.sin_conteo > 0 && ' · '}
+          {alerta.sin_conteo > 0 && <>{alerta.sin_conteo} cierre{alerta.sin_conteo === 1 ? '' : 's'} sin contar</>}
+        </div>
+      )}
 
       {r.dia_cerrado_hoy && <p className="text-sm text-green-strong font-semibold">Hoy ya está cerrado.</p>}
       <p className="text-xs text-muted">CUP y USD nunca se mezclan.</p>
