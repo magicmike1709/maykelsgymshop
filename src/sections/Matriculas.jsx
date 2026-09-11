@@ -294,7 +294,7 @@ function ClientesGym({ perfil }) {
   const [meses, setMeses] = useState([])
   const [mesElegido, setMesElegido] = useState(null)
   const [verTodos, setVerTodos] = useState(false)
-  const [directorio, setDirectorio] = useState([])
+  const [directorio, setDirectorio] = useState(null)
 
   const [stats, setStats] = useState(null)
   const [refrescar, setRefrescar] = useState(0)
@@ -318,6 +318,7 @@ function ClientesGym({ perfil }) {
 
   useEffect(() => {
     if (sub !== 'directorio') return
+    setDirectorio(null)
     if (verTodos) {
       supabase.rpc('clientes_todos').then(({ data }) => setDirectorio(data || []))
     } else if (mesElegido) {
@@ -342,7 +343,7 @@ function ClientesGym({ perfil }) {
     setDetalle(data)
   }
 
-  const grupos = agruparPorEntrenador(directorio)
+  const grupos = agruparPorEntrenador(directorio || [])
 
   return (
     <div className="space-y-4">
@@ -386,7 +387,8 @@ function ClientesGym({ perfil }) {
               ))}
             </select>
           )}
-          {meses.length === 0 && <p className="text-sm text-muted">Todavía no hay clientes cargados.</p>}
+          {meses.length === 0 && directorio !== null && <p className="text-sm text-muted">Todavía no hay clientes cargados.</p>}
+          {directorio === null && <p className="text-sm text-muted">Cargando…</p>}
           <div className="space-y-3">
             {grupos.map(([entrenador, lista]) => (
               <div key={entrenador}>

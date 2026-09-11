@@ -37,6 +37,7 @@ export default function Equipo() {
   const [uRol, setURol] = useState('operador')
   const [uMensaje, setUMensaje] = useState('')
   const [mensaje, setMensaje] = useState('')
+  const [pagando, setPagando] = useState(null)
 
   async function cargar() {
     const [g, m, s, cp, mp, sp, us] = await Promise.all([
@@ -86,20 +87,29 @@ export default function Equipo() {
     setSNombre(''); cargar()
   }
   async function pagarComision(id) {
-    setMensaje('')
+    const clave = 'comision:' + id
+    if (pagando) return
+    setMensaje(''); setPagando(clave)
     const { error } = await supabase.rpc('comision_pagar', { p_gestor_id: id })
+    setPagando(null)
     if (error) return setMensaje('No se pudo pagar: ' + error.message)
     cargar()
   }
   async function rendirMensajero(id) {
-    setMensaje('')
+    const clave = 'mensajero:' + id
+    if (pagando) return
+    setMensaje(''); setPagando(clave)
     const { error } = await supabase.rpc('mensajero_rendir', { p_mensajero_id: id })
+    setPagando(null)
     if (error) return setMensaje('No se pudo marcar: ' + error.message)
     cargar()
   }
   async function pagarSocio(id) {
-    setMensaje('')
+    const clave = 'socio:' + id
+    if (pagando) return
+    setMensaje(''); setPagando(clave)
     const { error } = await supabase.rpc('socio_pagar', { p_socio_id: id })
+    setPagando(null)
     if (error) return setMensaje('No se pudo pagar: ' + error.message)
     cargar()
   }
@@ -129,7 +139,10 @@ export default function Equipo() {
                 <span>{c.gestor_nombre} · {c.ventas} venta{c.ventas === 1 ? '' : 's'}</span>
                 <div className="flex items-center gap-2">
                   <span className="font-bold tabular-nums">${Number(c.total).toLocaleString('en-US')}</span>
-                  <button onClick={() => pagarComision(c.gestor_id)} className="text-xs font-semibold text-white bg-green rounded-full px-3 py-1.5">Pagar</button>
+                  <button onClick={() => pagarComision(c.gestor_id)} disabled={!!pagando}
+                    className="text-xs font-semibold text-white bg-green rounded-full px-3 py-1.5 disabled:opacity-50">
+                    {pagando === 'comision:' + c.gestor_id ? 'Pagando…' : 'Pagar'}
+                  </button>
                 </div>
               </div>
             ))}
@@ -145,7 +158,10 @@ export default function Equipo() {
                 <span>{m.mensajero_nombre} · {m.ventas} entrega{m.ventas === 1 ? '' : 's'}</span>
                 <div className="flex items-center gap-2">
                   <span className="font-bold tabular-nums">${Number(m.total).toLocaleString('en-US')}</span>
-                  <button onClick={() => rendirMensajero(m.mensajero_id)} className="text-xs font-semibold text-white bg-green rounded-full px-3 py-1.5">Ya rindió</button>
+                  <button onClick={() => rendirMensajero(m.mensajero_id)} disabled={!!pagando}
+                    className="text-xs font-semibold text-white bg-green rounded-full px-3 py-1.5 disabled:opacity-50">
+                    {pagando === 'mensajero:' + m.mensajero_id ? 'Marcando…' : 'Ya rindió'}
+                  </button>
                 </div>
               </div>
             ))}
@@ -161,7 +177,10 @@ export default function Equipo() {
                 <span>{s.socio_nombre}</span>
                 <div className="flex items-center gap-2">
                   <span className="font-bold tabular-nums">${Number(s.total).toLocaleString('en-US')}</span>
-                  <button onClick={() => pagarSocio(s.socio_id)} className="text-xs font-semibold text-white bg-green rounded-full px-3 py-1.5">Pagar</button>
+                  <button onClick={() => pagarSocio(s.socio_id)} disabled={!!pagando}
+                    className="text-xs font-semibold text-white bg-green rounded-full px-3 py-1.5 disabled:opacity-50">
+                    {pagando === 'socio:' + s.socio_id ? 'Pagando…' : 'Pagar'}
+                  </button>
                 </div>
               </div>
             ))}
