@@ -450,37 +450,124 @@ function telefonoWa(telefono) {
   return digitos.startsWith('53') ? digitos : '53' + digitos
 }
 
+function fechaCorta(f) {
+  if (!f) return 'sin fecha'
+  const [, m, d] = f.split('-')
+  return `${Number(d)}/${Number(m)}`
+}
+
+const RANGOS_DIA = [
+  { id: '1-5', label: '1-5', desde: 1, hasta: 5 },
+  { id: '6-10', label: '6-10', desde: 6, hasta: 10 },
+  { id: '11-15', label: '11-15', desde: 11, hasta: 15 },
+  { id: '16-20', label: '16-20', desde: 16, hasta: 20 },
+  { id: '21-25', label: '21-25', desde: 21, hasta: 25 },
+  { id: '26-32', label: '26-32', desde: 26, hasta: 32 }
+]
+
+function diaDelMes(fecha) {
+  if (!fecha) return null
+  return Number(fecha.split('-')[2])
+}
+
+function agruparPorRangoDia(lista) {
+  const grupos = RANGOS_DIA.map((r) => ({ ...r, clientes: [] }))
+  for (const c of lista) {
+    const dia = diaDelMes(c.fecha_pago)
+    const rango = grupos.find((r) => dia !== null && dia >= r.desde && dia <= r.hasta)
+    if (rango) rango.clientes.push(c)
+  }
+  return grupos.filter((r) => r.clientes.length > 0)
+}
+
 function Recordar({ lista }) {
+  const [seleccion, setSeleccion] = useState({})
+  const [textoMasivo, setTextoMasivo] = useState('Hola! Somos Maykel\'s Gym. Vimos que todavía no has renovado tu matrícula de este mes. ¿Te esperamos esta semana? 💪')
+
   if (lista === null) return <p className="text-sm text-muted">Cargando…</p>
   if (lista.length === 0) {
     return <p className="text-sm text-muted">Nadie pendiente: todos los que pagaron el mes pasado ya pagaron este mes (o no hay datos del mes pasado).</p>
   }
+
+  const grupos = agruparPorRangoDia(lista)
+
+  function marcar(id, val) {
+    setSeleccion((s) => ({ ...s, [id]: val }))
+  }
+
+  function marcarGrupo(clientes, val) {
+    setSeleccion((s) => {
+      const copia = { ...s }
+      for (const c of clientes) copia[c.id] = val
+      return copia
+    })
+  }
+
+  const seleccionados = lista.filter((c) => seleccion[c.id])
+  const telefonos = [...new Set(seleccionados.map((c) => (c.telefono || '').replace(/\D/g, '')).filter(Boolean))]
+
+  function enviarMasivoSMS() {
+    if (telefonos.length === 0) return
+    window.location.href = 'sms:' + telefonos.join(',') + '?body=' + encodeURIComponent(textoMasivo)
+  }
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-4 pb-20">
       <p className="text-xs text-muted">
-        Pagaron en {mesLabel(lista[0].mes_anterior)} y todavía no pagan este mes. Un mensaje a tiempo evita que se pierdan.
+        Pagaron en {mesLabel(lista[0].mes_anterior)} y todavía no pagan este mes. Agrupados por el día en que pagaron, para avisarles a tiempo.
       </p>
-      <div className="space-y-1.5">
-        {lista.map((c) => {
-          const wa = telefonoWa(c.telefono)
-          const texto = `Hola ${c.nombre.split(' ')[0]}! 👋 Somos Maykel's Gym. Vimos que todavía no has renovado tu matrícula de este mes. ¿Te esperamos esta semana? 💪`
-          return (
-            <div key={c.id} className="flex items-center justify-between rounded-xl border border-line bg-surface px-4 py-3">
-              <div>
-                <div className="text-sm font-semibold">{c.nombre}</div>
-                <div className="text-xs text-muted">{c.telefono || 'sin teléfono'}{c.entrenador ? ` · ${c.entrenador}` : ''}</div>
-              </div>
-              {wa ? (
-                <a href={'https://wa.me/' + wa + '?text=' + encodeURIComponent(texto)} target="_blank" rel="noreferrer"
-                  className="text-xs font-semibold text-green-strong border border-green rounded-full px-3 py-1.5 whitespace-nowrap">
-                  WhatsApp
-                </a>
-              ) : (
-                <span className="text-xs text-muted">sin teléfono</span>
-              )}
+
+      {grupos.map((r) => {
+        const todosMarcados = r.clientes.every((c) => seleccion[c.id])
+        return (
+          <div key={r.id} className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <h3 className="font-display text-xs font-semibold uppercase tracking-wide text-green-strong">
+                Día {r.label} · {r.clientes.length}
+              </h3>
+              <button onClick={() => marcarGrupo(r.clientes, !todosMarcados)}
+                className="text-[11px] font-semibold text-green-strong underline">
+                {todosMarcados ? 'Quitar todos' : 'Marcar todos'}
+              </button>
             </div>
-          )
-        })}
+            <div className="space-y-1.5">
+              {r.clientes.map((c) => {
+                const wa = telefonoWa(c.telefono)
+                const textoWa = `Hola ${c.nombre.split(' ')[0]}! 👋 Somos Maykel's Gym. Vimos que todavía no has renovado tu matrícula de este mes. ¿Te esperamos esta semana? 💪`
+                return (
+                  <label key={c.id} className="flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
+                    <input type="checkbox" checked={!!seleccion[c.id]} onChange={(e) => marcar(c.id, e.target.checked)}
+                      className="h-4 w-4 accent-green shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold">{c.nombre}</div>
+                      <div className="text-xs text-muted">
+                        Pagó el {fechaCorta(c.fecha_pago)} · {c.telefono || 'sin teléfono'}{c.entrenador ? ` · ${c.entrenador}` : ''}
+                      </div>
+                    </div>
+                    {wa ? (
+                      <a href={'https://wa.me/' + wa + '?text=' + encodeURIComponent(textoWa)} target="_blank" rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-xs font-semibold text-green-strong border border-green rounded-full px-3 py-1.5 whitespace-nowrap">
+                        WhatsApp
+                      </a>
+                    ) : null}
+                  </label>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })}
+
+      <div className="fixed bottom-16 left-0 right-0 px-4">
+        <div className="mx-auto max-w-md rounded-2xl border border-line bg-surface p-3 shadow-lg space-y-2">
+          <textarea value={textoMasivo} onChange={(e) => setTextoMasivo(e.target.value)} rows={2}
+            className="w-full rounded-xl border border-line px-3 py-2 text-xs outline-none focus:border-green" />
+          <button onClick={enviarMasivoSMS} disabled={telefonos.length === 0}
+            className="w-full rounded-xl bg-green text-white text-sm font-semibold py-2.5 disabled:opacity-50">
+            Mensaje masivo SMS · {telefonos.length} {telefonos.length === 1 ? 'teléfono' : 'teléfonos'}
+          </button>
+        </div>
       </div>
     </div>
   )
