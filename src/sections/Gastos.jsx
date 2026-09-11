@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../supabaseClient'
 
 function n(v) {
@@ -24,9 +24,11 @@ export default function Gastos({ perfil }) {
   const [fijoMoneda, setFijoMoneda] = useState('CUP')
   const [fijoCategoriaId, setFijoCategoriaId] = useState('')
   const [fijoDia, setFijoDia] = useState('1')
+  const [fijoVariable, setFijoVariable] = useState(false)
   const [guardandoFijo, setGuardandoFijo] = useState(false)
 
   const puedeRegistrar = perfil?.rol === 'admin' || perfil?.rol === 'operador_plus'
+  const formRef = useRef(null)
 
   async function cargar() {
     const { data } = await supabase.rpc('gastos_lista')
@@ -64,8 +66,16 @@ export default function Gastos({ perfil }) {
     cargar()
   }
 
-  async function cargarFijo(id) {
-    const { error } = await supabase.rpc('gasto_fijo_cargar', { p_id: id })
+  async function cargarFijo(f) {
+    if (f.monto_variable) {
+      setConcepto(f.concepto)
+      setMoneda(f.moneda)
+      setCategoriaId(f.categoria_id || '')
+      setImporte('')
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      return
+    }
+    const { error } = await supabase.rpc('gasto_fijo_cargar', { p_id: f.id })
     if (error) return setMensaje('No se pudo cargar: ' + error.message)
     cargar()
   }
@@ -75,12 +85,12 @@ export default function Gastos({ perfil }) {
     if (!fijoConcepto || !fijoImporte) return
     setGuardandoFijo(true)
     const { error } = await supabase.rpc('gasto_fijo_guardar', {
-      p_id: null, p_concepto: fijoConcepto, p_importe: Number(fijoImporte), p_moneda: fijoMoneda,
-      p_categoria_id: fijoCategoriaId || null, p_dia_mes: Number(fijoDia)
+      p_id: null, p_concepto: fijoConcepto, p_importe: fijoVariable ? 0 : Number(fijoImporte), p_moneda: fijoMoneda,
+      p_categoria_id: fijoCategoriaId || null, p_dia_mes: Number(fijoDia), p_monto_variable: fijoVariable
     })
     setGuardandoFijo(false)
     if (error) return setMensaje('No se pudo guardar el gasto fijo: ' + error.message)
-    setFijoConcepto(''); setFijoImporte(''); setFijoCategoriaId(''); setFijoDia('1')
+    setFijoConcepto(''); setFijoImporte(''); setFijoCategoriaId(''); setFijoDia('1'); setFijoVariable(false)
     cargar()
   }
 
@@ -92,7 +102,6 @@ export default function Gastos({ perfil }) {
   }
 
   const categoriaSeleccionada = categorias.find((c) => c.id === categoriaId)
-  const pendientes = fijos.filter((f) => !f.ya_cargado_este_mes)
   const cargados = fijos.filter((f) => f.ya_cargado_este_mes)
 
   return (
@@ -114,27 +123,32 @@ export default function Gastos({ perfil }) {
 
       {puedeRegistrar && fijos.length > 0 && (
         <section className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
-          <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-green-strong mb-1">Gastos fijos de este mes</h2>
-          <p className="text-xs text-muted mb-3">Toca uno para cargarlo con su monto de siempre. Puedes editar el importe después si cambió.</p>
-          {pendientes.length === 0 && <p className="text-xs text-muted mb-2">Ya cargaste todos los gastos fijos de este mes. 🎉</p>}
-          <div className="flex flex-wrap gap-2">
-            {pendientes.map((f) => (
-              <button key={f.id} onClick={() => cargarFijo(f.id)}
-                className="text-xs font-semibold rounded-full border border-red text-red px-3 py-2">
-                + {f.concepto} · {f.moneda === 'USD' ? '$' : ''}{n(f.importe)}{f.moneda === 'CUP' ? ' CUP' : ''}
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-green-strong">Checklist de gastos fijos</h2>
+            <span className="text-xs font-semibold text-muted tabular-nums">{cargados.length}/{fijos.length}</span>
+          </div>
+          <p className="text-xs text-muted mb-3">Marca los que ya pagaste este mes. Los de monto variable (como la ONAT) abren el formulario para poner el importe real.</p>
+          <div className="space-y-1.5">
+            {fijos.map((f) => (
+              <button key={f.id} onClick={() => !f.ya_cargado_este_mes && cargarFijo(f)} disabled={f.ya_cargado_este_mes}
+                className={'w-full flex items-center gap-3 rounded-xl border px-4 py-3 text-left ' + (f.ya_cargado_este_mes ? 'border-line bg-green-soft/40' : 'border-line bg-surface')}>
+                <span className={'w-6 h-6 rounded-md border flex items-center justify-center shrink-0 text-sm font-bold ' + (f.ya_cargado_este_mes ? 'bg-green border-green text-white' : 'border-line text-transparent')}>
+                  ✓
+                </span>
+                <span className="flex-1 min-w-0">
+                  <span className={'block text-sm font-semibold ' + (f.ya_cargado_este_mes ? 'line-through text-muted' : '')}>{f.concepto}</span>
+                  <span className="block text-xs text-muted">
+                    día {f.dia_mes}{f.monto_variable ? ' · monto variable' : ` · ${f.moneda === 'USD' ? '$' : ''}${n(f.importe)}${f.moneda === 'CUP' ? ' CUP' : ''}`}
+                  </span>
+                </span>
               </button>
-            ))}
-            {cargados.map((f) => (
-              <span key={f.id} className="text-xs font-semibold rounded-full bg-green-soft text-green-strong px-3 py-2">
-                ✓ {f.concepto}
-              </span>
             ))}
           </div>
         </section>
       )}
 
       {puedeRegistrar && (
-        <section className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
+        <section ref={formRef} className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
           <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-red mb-3">Registrar gasto</h2>
           <form onSubmit={guardar} className="space-y-2">
             <input value={concepto} onChange={(e) => setConcepto(e.target.value)} placeholder="Concepto (ej. Factura de luz)"
@@ -175,9 +189,14 @@ export default function Gastos({ perfil }) {
             <div className="mt-3 rounded-2xl border border-line bg-surface p-4 shadow-sm space-y-2">
               <input value={fijoConcepto} onChange={(e) => setFijoConcepto(e.target.value)} placeholder="Concepto (ej. Renta del local, Nómina)"
                 className="w-full rounded-xl border border-line px-4 py-3 text-base outline-none focus:border-green" />
+              <label className="flex items-center gap-2 text-xs text-muted px-1">
+                <input type="checkbox" checked={fijoVariable} onChange={(e) => setFijoVariable(e.target.checked)} className="w-4 h-4" />
+                El monto cambia cada mes (como la ONAT) — no tiene importe fijo
+              </label>
               <div className="grid grid-cols-2 gap-2">
-                <input value={fijoImporte} onChange={(e) => setFijoImporte(e.target.value)} type="number" min="0" placeholder="Importe de siempre"
-                  className="w-full rounded-xl border border-line px-4 py-3 text-base outline-none focus:border-green" />
+                <input value={fijoImporte} onChange={(e) => setFijoImporte(e.target.value)} type="number" min="0"
+                  placeholder={fijoVariable ? 'No aplica' : 'Importe de siempre'} disabled={fijoVariable}
+                  className="w-full rounded-xl border border-line px-4 py-3 text-base outline-none focus:border-green disabled:opacity-50" />
                 <select value={fijoMoneda} onChange={(e) => setFijoMoneda(e.target.value)}
                   className="w-full rounded-xl border border-line px-4 py-3 text-base outline-none focus:border-green bg-surface">
                   <option value="CUP">CUP</option>

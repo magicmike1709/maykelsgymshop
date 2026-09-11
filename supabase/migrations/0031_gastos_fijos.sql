@@ -11,6 +11,11 @@ create table public.gastos_fijos (
   moneda text not null check (moneda in ('CUP', 'USD')),
   categoria_id uuid references public.gasto_categorias(id),
   dia_mes smallint not null default 1 check (dia_mes between 1 and 28),
+  -- true para gastos que cambian cada mes (ej. ONAT: depende de lo
+  -- facturado) — el botón de un toque no carga un monto automático,
+  -- abre el formulario de "Registrar gasto" con el concepto ya
+  -- escrito para que se ponga el importe real de ese mes.
+  monto_variable boolean not null default false,
   activo boolean not null default true,
   creado_en timestamptz not null default now()
 );
@@ -26,9 +31,9 @@ create unique index ux_gastos_fijo_mes on public.gastos (gasto_fijo_id, (((extra
 
 create function public.gastos_fijos_lista()
 returns table(id uuid, concepto text, importe numeric, moneda text, categoria_id uuid, categoria text, dia_mes smallint,
-  ya_cargado_este_mes boolean)
+  monto_variable boolean, ya_cargado_este_mes boolean)
 language sql stable security definer set search_path = public as $$
-  select f.id, f.concepto, f.importe, f.moneda, f.categoria_id, gc.nombre, f.dia_mes,
+  select f.id, f.concepto, f.importe, f.moneda, f.categoria_id, gc.nombre, f.dia_mes, f.monto_variable,
     exists (
       select 1 from public.gastos g
       where g.gasto_fijo_id = f.id and to_char(g.fecha, 'YYYY-MM') = to_char(current_date, 'YYYY-MM')
@@ -40,19 +45,19 @@ language sql stable security definer set search_path = public as $$
 $$;
 
 create function public.gasto_fijo_guardar(p_id uuid, p_concepto text, p_importe numeric, p_moneda text,
-  p_categoria_id uuid default null, p_dia_mes smallint default 1)
+  p_categoria_id uuid default null, p_dia_mes smallint default 1, p_monto_variable boolean default false)
 returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare v_id uuid;
 begin
   if not app.tiene_permiso('gastos.registrar') then raise exception 'MG403: sin permiso'; end if;
   if p_id is null then
-    insert into public.gastos_fijos (concepto, importe, moneda, categoria_id, dia_mes)
-    values (p_concepto, p_importe, p_moneda, p_categoria_id, p_dia_mes)
+    insert into public.gastos_fijos (concepto, importe, moneda, categoria_id, dia_mes, monto_variable)
+    values (p_concepto, p_importe, p_moneda, p_categoria_id, p_dia_mes, p_monto_variable)
     returning id into v_id;
   else
     update public.gastos_fijos set concepto = p_concepto, importe = p_importe, moneda = p_moneda,
-      categoria_id = p_categoria_id, dia_mes = p_dia_mes
+      categoria_id = p_categoria_id, dia_mes = p_dia_mes, monto_variable = p_monto_variable
     where id = p_id returning id into v_id;
   end if;
   return jsonb_build_object('ok', true, 'id', v_id);
@@ -79,6 +84,7 @@ begin
   if app.dia_cerrado(p_fecha) then raise exception 'MG423: el día ya está cerrado, reábrelo para editar'; end if;
   select * into v_fijo from public.gastos_fijos where id = p_id and activo;
   if v_fijo is null then raise exception 'MG404: gasto fijo no encontrado'; end if;
+  if v_fijo.monto_variable then raise exception 'MG422: este gasto tiene monto variable, regístralo desde el formulario con el importe de este mes'; end if;
   insert into public.gastos (fecha, moneda, importe, categoria_id, concepto, usuario_id, gasto_fijo_id)
   values (p_fecha, v_fijo.moneda, v_fijo.importe, v_fijo.categoria_id, v_fijo.concepto, app.usuario_actual(), p_id)
   on conflict (gasto_fijo_id, (((extract(year from fecha)*100 + extract(month from fecha))::int))) where gasto_fijo_id is not null do nothing
@@ -96,7 +102,7 @@ language plpgsql security definer set search_path = public as $$
 declare v_fijo record; v_fecha date; v_creados int := 0;
 begin
   if not app.tiene_permiso('gastos.registrar') then raise exception 'MG403: sin permiso'; end if;
-  for v_fijo in select * from public.gastos_fijos where activo loop
+  for v_fijo in select * from public.gastos_fijos where activo and not monto_variable loop
     v_fecha := (p_mes || '-01')::date + (least(v_fijo.dia_mes, 28) - 1);
     insert into public.gastos (fecha, moneda, importe, categoria_id, concepto, usuario_id, gasto_fijo_id)
     values (v_fecha, v_fijo.moneda, v_fijo.importe, v_fijo.categoria_id, v_fijo.concepto, app.usuario_actual(), v_fijo.id)
@@ -122,14 +128,14 @@ end;
 $$;
 
 revoke execute on function public.gastos_fijos_lista() from anon;
-revoke execute on function public.gasto_fijo_guardar(uuid, text, numeric, text, uuid, smallint) from anon;
+revoke execute on function public.gasto_fijo_guardar(uuid, text, numeric, text, uuid, smallint, boolean) from anon;
 revoke execute on function public.gasto_fijo_desactivar(uuid) from anon;
 revoke execute on function public.gasto_fijo_cargar(uuid, date) from anon;
 revoke execute on function public.gastos_fijos_generar_mes(text) from anon;
 revoke execute on function public.gasto_borrar(uuid) from anon;
 
 grant execute on function public.gastos_fijos_lista() to authenticated, service_role;
-grant execute on function public.gasto_fijo_guardar(uuid, text, numeric, text, uuid, smallint) to authenticated, service_role;
+grant execute on function public.gasto_fijo_guardar(uuid, text, numeric, text, uuid, smallint, boolean) to authenticated, service_role;
 grant execute on function public.gasto_fijo_desactivar(uuid) to authenticated, service_role;
 grant execute on function public.gasto_fijo_cargar(uuid, date) to authenticated, service_role;
 grant execute on function public.gastos_fijos_generar_mes(text) to authenticated, service_role;
