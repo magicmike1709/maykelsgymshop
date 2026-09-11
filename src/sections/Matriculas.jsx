@@ -506,9 +506,22 @@ function Recordar({ lista }) {
   const seleccionados = lista.filter((c) => seleccion[c.id])
   const telefonos = [...new Set(seleccionados.map((c) => (c.telefono || '').replace(/\D/g, '')).filter(Boolean))]
 
+  const [copiado, setCopiado] = useState(false)
+
   function enviarMasivoSMS() {
     if (telefonos.length === 0) return
     window.location.href = 'sms:' + telefonos.join(',') + '?body=' + encodeURIComponent(textoMasivo)
+  }
+
+  async function copiarTelefonos() {
+    if (telefonos.length === 0) return
+    try {
+      await navigator.clipboard.writeText(telefonos.join(','))
+      setCopiado(true)
+      setTimeout(() => setCopiado(false), 2000)
+    } catch {
+      window.prompt('Copia los teléfonos:', telefonos.join(','))
+    }
   }
 
   return (
@@ -563,9 +576,13 @@ function Recordar({ lista }) {
         <div className="mx-auto max-w-md rounded-2xl border border-line bg-surface p-3 shadow-lg space-y-2">
           <textarea value={textoMasivo} onChange={(e) => setTextoMasivo(e.target.value)} rows={2}
             className="w-full rounded-xl border border-line px-3 py-2 text-xs outline-none focus:border-green" />
-          <button onClick={enviarMasivoSMS} disabled={telefonos.length === 0}
+          <button onClick={copiarTelefonos} disabled={telefonos.length === 0}
             className="w-full rounded-xl bg-green text-white text-sm font-semibold py-2.5 disabled:opacity-50">
-            Mensaje masivo SMS · {telefonos.length} {telefonos.length === 1 ? 'teléfono' : 'teléfonos'}
+            {copiado ? '✓ Copiados — pégalos en "Para:"' : `Copiar ${telefonos.length} ${telefonos.length === 1 ? 'teléfono' : 'teléfonos'}`}
+          </button>
+          <button onClick={enviarMasivoSMS} disabled={telefonos.length === 0}
+            className="w-full rounded-xl border border-green text-green-strong text-xs font-semibold py-2 disabled:opacity-50">
+            Abrir SMS directo (puede traer solo 1 número)
           </button>
         </div>
       </div>
