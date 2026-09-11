@@ -499,6 +499,7 @@ function agruparPorRangoDia(lista) {
 function Recordar({ lista }) {
   const [seleccion, setSeleccion] = useState({})
   const [textoMasivo, setTextoMasivo] = useState('Hola! Somos Maykel\'s Gym. Vimos que todavía no has renovado tu matrícula de este mes. ¿Te esperamos esta semana? 💪')
+  const [copiado, setCopiado] = useState(false)
 
   if (lista === null) return <p className="text-sm text-muted">Cargando…</p>
   if (lista.length === 0) {
@@ -521,8 +522,6 @@ function Recordar({ lista }) {
 
   const seleccionados = lista.filter((c) => seleccion[c.id])
   const telefonos = [...new Set(seleccionados.map((c) => (c.telefono || '').replace(/\D/g, '')).filter(Boolean))]
-
-  const [copiado, setCopiado] = useState(false)
 
   function enviarMasivoSMS() {
     if (telefonos.length === 0) return
