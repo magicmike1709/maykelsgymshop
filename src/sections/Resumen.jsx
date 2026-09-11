@@ -1,12 +1,9 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
+import { fechaLocal as fmtDate } from '../lib/fecha'
 
 function n(v) {
   return Number(v || 0).toLocaleString('es-CU')
-}
-
-function fmtDate(d) {
-  return d.toISOString().slice(0, 10)
 }
 
 function ultimoDiaMes(anio, mes0) {

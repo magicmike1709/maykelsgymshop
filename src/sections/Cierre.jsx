@@ -49,20 +49,26 @@ export default function Cierre() {
   }
 
   async function reabrir(dia) {
-    await supabase.rpc('cierre_reabrir', { p_dia: dia })
+    setMensaje('')
+    const { error } = await supabase.rpc('cierre_reabrir', { p_dia: dia })
+    if (error) return setMensaje('No se pudo reabrir: ' + error.message)
     cargar()
   }
 
   async function guardarConteo(dia, valor) {
     if (valor === '') return
+    setMensaje('')
     const { error } = await supabase.rpc('cierre_registrar_conteo', { p_dia: dia, p_caja_contada: Number(valor) })
-    if (!error) { setConteoAbierto(null); cargar() }
+    if (error) return setMensaje('No se pudo guardar el conteo: ' + error.message)
+    setConteoAbierto(null); cargar()
   }
 
   const hoyCerrado = resumenHoy?.dia_cerrado_hoy
 
   return (
     <div className="space-y-5 pb-4">
+      {mensaje && <p className="text-sm text-red rounded-xl border border-red/30 bg-surface px-4 py-2.5">{mensaje}</p>}
+
       {alerta && (alerta.con_descuadre > 0 || alerta.sin_conteo > 0) && (
         <section className="rounded-2xl border border-red bg-red-soft p-4">
           <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-red mb-1">Alerta de caja · últimos {alerta.dias} días</h2>
@@ -97,7 +103,6 @@ export default function Cierre() {
             </button>
           </>
         )}
-        {mensaje && <p className="text-sm text-muted mt-2">{mensaje}</p>}
       </section>
 
       <section>

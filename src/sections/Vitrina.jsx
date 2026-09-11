@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../supabaseClient'
+import { fechaLocal as fmtDate } from '../lib/fecha'
 
 function n(v) {
   return Number(v || 0).toLocaleString('en-US')
-}
-function fmtDate(d) {
-  return d.toISOString().slice(0, 10)
 }
 function ultimoDiaMes(anio, mes0) {
   return new Date(anio, mes0 + 1, 0).getDate()

@@ -36,6 +36,7 @@ export default function Equipo() {
   const [uNombre, setUNombre] = useState('')
   const [uRol, setURol] = useState('operador')
   const [uMensaje, setUMensaje] = useState('')
+  const [mensaje, setMensaje] = useState('')
 
   async function cargar() {
     const [g, m, s, cp, mp, sp, us] = await Promise.all([
@@ -62,25 +63,46 @@ export default function Equipo() {
 
   async function agregarGestor(e) {
     e.preventDefault()
+    setMensaje('')
     if (!gNombre) return
-    await supabase.rpc('gestor_guardar', { p_id: null, p_nombre: gNombre, p_pct_comision: Number(gPct || 0) / 100 })
+    const { error } = await supabase.rpc('gestor_guardar', { p_id: null, p_nombre: gNombre, p_pct_comision: Number(gPct || 0) / 100 })
+    if (error) return setMensaje('No se pudo agregar: ' + error.message)
     setGNombre(''); setGPct(''); cargar()
   }
   async function agregarMensajero(e) {
     e.preventDefault()
+    setMensaje('')
     if (!mNombre) return
-    await supabase.rpc('mensajero_guardar', { p_id: null, p_nombre: mNombre })
+    const { error } = await supabase.rpc('mensajero_guardar', { p_id: null, p_nombre: mNombre })
+    if (error) return setMensaje('No se pudo agregar: ' + error.message)
     setMNombre(''); cargar()
   }
   async function agregarSocio(e) {
     e.preventDefault()
+    setMensaje('')
     if (!sNombre) return
-    await supabase.rpc('socio_guardar', { p_id: null, p_nombre: sNombre })
+    const { error } = await supabase.rpc('socio_guardar', { p_id: null, p_nombre: sNombre })
+    if (error) return setMensaje('No se pudo agregar: ' + error.message)
     setSNombre(''); cargar()
   }
-  async function pagarComision(id) { await supabase.rpc('comision_pagar', { p_gestor_id: id }); cargar() }
-  async function rendirMensajero(id) { await supabase.rpc('mensajero_rendir', { p_mensajero_id: id }); cargar() }
-  async function pagarSocio(id) { await supabase.rpc('socio_pagar', { p_socio_id: id }); cargar() }
+  async function pagarComision(id) {
+    setMensaje('')
+    const { error } = await supabase.rpc('comision_pagar', { p_gestor_id: id })
+    if (error) return setMensaje('No se pudo pagar: ' + error.message)
+    cargar()
+  }
+  async function rendirMensajero(id) {
+    setMensaje('')
+    const { error } = await supabase.rpc('mensajero_rendir', { p_mensajero_id: id })
+    if (error) return setMensaje('No se pudo marcar: ' + error.message)
+    cargar()
+  }
+  async function pagarSocio(id) {
+    setMensaje('')
+    const { error } = await supabase.rpc('socio_pagar', { p_socio_id: id })
+    if (error) return setMensaje('No se pudo pagar: ' + error.message)
+    cargar()
+  }
 
   async function crearUsuario(e) {
     e.preventDefault()
@@ -97,6 +119,8 @@ export default function Equipo() {
 
   return (
     <div className="space-y-5 pb-4">
+      {mensaje && <p className="text-sm text-red rounded-xl border border-red/30 bg-surface px-4 py-2.5">{mensaje}</p>}
+
       {comisionesPend.length > 0 && (
         <Bloque titulo="Comisiones pendientes" tono="text-yellow">
           <div className="space-y-2">

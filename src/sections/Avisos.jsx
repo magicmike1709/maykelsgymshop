@@ -6,6 +6,7 @@ export default function Avisos({ perfil }) {
   const [nuevo, setNuevo] = useState(false)
   const [titulo, setTitulo] = useState('')
   const [mensaje, setMensaje] = useState('')
+  const [error, setError] = useState('')
 
   const puedeCrear = perfil?.rol === 'admin' || perfil?.rol === 'operador_plus'
 
@@ -18,23 +19,31 @@ export default function Avisos({ perfil }) {
 
   async function guardar(e) {
     e.preventDefault()
+    setError('')
     if (!titulo) return
-    const { error } = await supabase.rpc('aviso_guardar', { p_titulo: titulo, p_mensaje: mensaje || null })
-    if (!error) { setTitulo(''); setMensaje(''); setNuevo(false); cargar() }
+    const { error: err } = await supabase.rpc('aviso_guardar', { p_titulo: titulo, p_mensaje: mensaje || null })
+    if (err) return setError('No se pudo guardar: ' + err.message)
+    setTitulo(''); setMensaje(''); setNuevo(false); cargar()
   }
 
   async function resolver(id) {
-    await supabase.rpc('aviso_resolver', { p_id: id })
+    setError('')
+    const { error: err } = await supabase.rpc('aviso_resolver', { p_id: id })
+    if (err) return setError('No se pudo resolver: ' + err.message)
     cargar()
   }
 
   async function confirmar(id) {
-    await supabase.rpc('aviso_confirmar', { p_id: id })
+    setError('')
+    const { error: err } = await supabase.rpc('aviso_confirmar', { p_id: id })
+    if (err) return setError('No se pudo confirmar: ' + err.message)
     cargar()
   }
 
   return (
     <div className="space-y-5 pb-4">
+      {error && <p className="text-sm text-red rounded-xl border border-red/30 bg-surface px-4 py-2.5">{error}</p>}
+
       {puedeCrear && (
         <section className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
           {!nuevo ? (

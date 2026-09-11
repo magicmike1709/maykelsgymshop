@@ -1,9 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
-
-function hoy() {
-  return new Date().toISOString().slice(0, 10)
-}
+import { fechaLocal as hoy } from '../lib/fecha'
 
 function mesLabel(mes) {
   const [y, m] = mes.split('-').map(Number)

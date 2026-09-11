@@ -112,6 +112,7 @@ $$;
 create function public.aviso_resolver(p_id uuid)
 returns jsonb language plpgsql security definer set search_path = public as $$
 begin
+  if not app.tiene_permiso('usuarios.administrar') then raise exception 'MG403: sin permiso'; end if;
   update public.avisos set activo = false where id = p_id;
   return jsonb_build_object('ok', true);
 end;
