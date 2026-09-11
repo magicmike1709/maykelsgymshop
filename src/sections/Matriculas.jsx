@@ -149,14 +149,30 @@ export default function Matriculas({ perfil }) {
   )
 }
 
+function fechaLarga(f) {
+  if (!f) return null
+  const [y, m, d] = f.split('-')
+  return `${Number(d)}/${Number(m)}/${y}`
+}
+
 function FilaCliente({ c, abierto, onAbrir, detalle }) {
+  const fechaPago = c.fecha || c.ultima_visita
   return (
     <div className="rounded-xl border border-line bg-surface overflow-hidden">
-      <button onClick={() => onAbrir(c.id)} className="w-full text-left px-4 py-3">
-        <div className="text-sm font-semibold">{c.nombre}</div>
-        <div className="text-xs text-muted">
-          {c.telefono || 'sin teléfono'} · {c.sexo || '—'}{c.entrenador ? ` · ${c.entrenador}` : ''}
+      <button onClick={() => onAbrir(c.id)} className="w-full text-left px-4 py-3 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-sm font-semibold truncate">{c.nombre}</div>
+          <div className="text-xs text-muted truncate">
+            {c.telefono || 'sin teléfono'} · {c.sexo || '—'}{c.entrenador ? ` · ${c.entrenador}` : ''}
+          </div>
         </div>
+        {fechaPago && (
+          <div className="shrink-0 text-right">
+            <div className="text-[11px] font-semibold bg-green-soft text-green-strong rounded-full px-2.5 py-1 whitespace-nowrap">
+              {fechaLarga(fechaPago)}
+            </div>
+          </div>
+        )}
       </button>
       {abierto === c.id && (
         <div className="px-4 pb-3 border-t border-line pt-2">
