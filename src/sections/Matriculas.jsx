@@ -383,7 +383,7 @@ function ClientesGym({ perfil }) {
             <select value={mesElegido || ''} onChange={(e) => setMesElegido(e.target.value)}
               className="w-full rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-green bg-surface">
               {meses.map((m) => (
-                <option key={m.mes} value={m.mes}>{mesLabel(m.mes)} · {m.clientes} clientes</option>
+                <option key={m.mes} value={m.mes}>{mesLabel(m.mes)} · {m.clientes} clientes · {m.nuevos ?? 0} nuevos</option>
               ))}
             </select>
           )}
