@@ -333,6 +333,7 @@ function ClientesGym({ perfil }) {
 
   useEffect(() => {
     if (sub !== 'recordar') return
+    setSinRenovar(null)
     supabase.rpc('clientes_no_renovaron').then(({ data }) => setSinRenovar(data || []))
   }, [sub, refrescar])
 

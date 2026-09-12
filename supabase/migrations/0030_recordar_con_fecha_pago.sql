@@ -2,7 +2,14 @@
 -- mes anterior, y en "Recordar" hace falta para saber cuándo tocaba
 -- pagar y para poder agrupar a los clientes por rango de día del mes
 -- (1-5, 6-10, 11-15, 16-20, 21-25, 26-32) y mandarles SMS masivo.
-create or replace function public.clientes_no_renovaron(p_mes text default to_char(current_date, 'YYYY-MM'))
+--
+-- Agregar fecha_pago cambia el tipo de retorno, y Postgres no permite
+-- eso con "create or replace" — hace falta borrar la versión anterior
+-- (la de 0024, que devolvía 5 columnas) primero. Sin este drop, una
+-- reconstrucción limpia del esquema aborta justo aquí.
+drop function if exists public.clientes_no_renovaron(text);
+
+create function public.clientes_no_renovaron(p_mes text default to_char(current_date, 'YYYY-MM'))
 returns table(id uuid, nombre text, telefono text, entrenador text, mes_anterior text, fecha_pago date)
 language plpgsql stable security definer set search_path = public as $$
 declare v_mes_anterior text;
