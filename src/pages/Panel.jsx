@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient'
 // Cada pestaña se carga solo cuando se abre, para que la primera
 // pantalla (Resumen) pese lo menos posible con conexión mala.
 const Resumen = lazy(() => import('../sections/Resumen'))
+const Cobrar = lazy(() => import('../sections/Cobrar'))
 const Matriculas = lazy(() => import('../sections/Matriculas'))
 const Nevera = lazy(() => import('../sections/Nevera'))
 const Vitrina = lazy(() => import('../sections/Vitrina'))
@@ -21,6 +22,7 @@ function Cargando() {
 
 const TABS_BASE = [
   { id: 'resumen', label: 'Resumen' },
+  { id: 'cobrar', label: 'Cobrar matrícula' },
   { id: 'matriculas', label: 'Matrículas' },
   { id: 'nevera', label: 'Nevera' },
   { id: 'vitrina', label: 'Vitrina' },
@@ -40,7 +42,7 @@ const TABS_ADMIN = [
 // dueño no ve 11 renglones sueltos sino unos pocos bloques.
 const GRUPOS_MENU = [
   { titulo: 'Negocio', ids: ['resumen'] },
-  { titulo: 'Clientes', ids: ['matriculas', 'avisos'] },
+  { titulo: 'Clientes', ids: ['cobrar', 'matriculas', 'avisos'] },
   { titulo: 'Ventas', ids: ['nevera', 'vitrina', 'inventario'] },
   { titulo: 'Finanzas', ids: ['gastos'] },
   { titulo: 'Administración', ids: ['equipo', 'cierre', 'fondos', 'actividad'] }
@@ -100,6 +102,7 @@ export default function Panel() {
         {perfil && (
           <Suspense fallback={<Cargando />}>
             {tab === 'resumen' && <Resumen />}
+            {tab === 'cobrar' && <Cobrar perfil={perfil} />}
             {tab === 'matriculas' && <Matriculas perfil={perfil} />}
             {tab === 'nevera' && <Nevera perfil={perfil} />}
             {tab === 'vitrina' && <Vitrina />}

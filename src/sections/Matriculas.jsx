@@ -152,8 +152,13 @@ function fechaLarga(f) {
   return `${Number(d)}/${Number(m)}/${y}`
 }
 
-function FilaCliente({ c, abierto, onAbrir, detalle }) {
+function FilaCliente({ c, abierto, onAbrir, detalle, puedeEditar, entrenadores, onGuardado }) {
+  const [editando, setEditando] = useState(false)
   const fechaPago = c.fecha || c.ultima_visita
+  const estaAbierto = abierto === c.id
+
+  useEffect(() => { if (!estaAbierto) setEditando(false) }, [estaAbierto])
+
   return (
     <div className="rounded-xl border border-line bg-surface overflow-hidden">
       <button onClick={() => onAbrir(c.id)} className="w-full text-left px-4 py-3 flex items-center justify-between gap-3">
@@ -171,22 +176,97 @@ function FilaCliente({ c, abierto, onAbrir, detalle }) {
           </div>
         )}
       </button>
-      {abierto === c.id && (
+      {estaAbierto && (
         <div className="px-4 pb-3 border-t border-line pt-2">
           {!detalle ? (
             <p className="text-xs text-muted">Cargando…</p>
+          ) : editando ? (
+            <EditarCliente cliente={detalle.cliente} entrenadores={entrenadores}
+              onCancelar={() => setEditando(false)}
+              onGuardado={() => { setEditando(false); onGuardado() }} />
           ) : (
             <>
-              <p className="text-xs font-semibold text-muted mb-1">Meses en que pagó:</p>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs mb-2">
+                <span className="text-muted">Ha pagado <b className="text-ink tabular-nums">{n(detalle.total_pagado)} CUP</b></span>
+                <span className="text-muted">{detalle.veces} vez{detalle.veces === 1 ? '' : 'es'}</span>
+                {detalle.primera_visita && <span className="text-muted">desde {fechaLarga(detalle.primera_visita)}</span>}
+              </div>
+              <p className="text-xs font-semibold text-muted mb-1">Pagos:</p>
               <div className="flex flex-wrap gap-1.5">
                 {detalle.visitas.map((f) => (
                   <span key={f} className="text-[11px] font-semibold bg-green-soft text-green-strong rounded-full px-2 py-0.5">{f}</span>
                 ))}
               </div>
+              {puedeEditar && (
+                <button onClick={() => setEditando(true)}
+                  className="mt-3 text-xs font-semibold text-green-strong underline">
+                  Corregir nombre o teléfono
+                </button>
+              )}
             </>
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+function EditarCliente({ cliente, entrenadores, onCancelar, onGuardado }) {
+  const [nombre, setNombre] = useState(cliente?.nombre || '')
+  const [telefono, setTelefono] = useState(cliente?.telefono || '')
+  const [sexo, setSexo] = useState(cliente?.sexo || '')
+  const [entrenador, setEntrenador] = useState(cliente?.entrenador || '')
+  const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState('')
+
+  const telLimpio = telefono.replace(/\D/g, '')
+  const telAvisa = telLimpio.length > 0 && telLimpio.length !== 8
+
+  async function guardar() {
+    if (guardando) return
+    setError(''); setGuardando(true)
+    const { error: err } = await supabase.rpc('cliente_editar', {
+      p_id: cliente.id,
+      p_nombre: nombre,
+      p_telefono: telLimpio || null,
+      p_sexo: sexo || null,
+      p_entrenador: entrenador || null
+    })
+    setGuardando(false)
+    if (err) return setError(err.message)
+    onGuardado()
+  }
+
+  return (
+    <div className="space-y-2 py-1">
+      <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre"
+        className="w-full rounded-xl border border-line px-3 py-2.5 text-base outline-none focus:border-green" />
+      <div>
+        <input value={telefono} onChange={(e) => setTelefono(e.target.value)} inputMode="numeric" placeholder="Teléfono (8 dígitos)"
+          className="w-full rounded-xl border border-line px-3 py-2.5 text-base outline-none focus:border-green" />
+        {telAvisa && <p className="text-[11px] text-yellow mt-1">Un móvil cubano tiene 8 dígitos — así no le van a llegar los SMS.</p>}
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <select value={sexo} onChange={(e) => setSexo(e.target.value)}
+          className="w-full rounded-xl border border-line px-3 py-2.5 text-sm outline-none focus:border-green bg-surface">
+          <option value="">Sexo</option>
+          <option value="Hombre">Hombre</option>
+          <option value="Mujer">Mujer</option>
+        </select>
+        <select value={entrenador} onChange={(e) => setEntrenador(e.target.value)}
+          className="w-full rounded-xl border border-line px-3 py-2.5 text-sm outline-none focus:border-green bg-surface">
+          <option value="">Sin entrenador</option>
+          {entrenadores.map((e) => <option key={e.entrenador} value={e.entrenador}>{e.entrenador}</option>)}
+        </select>
+      </div>
+      {error && <p className="text-xs text-red">{error}</p>}
+      <div className="flex gap-2">
+        <button onClick={guardar} disabled={guardando}
+          className="flex-1 rounded-xl bg-green text-white text-sm font-semibold py-2.5 disabled:opacity-60">
+          {guardando ? 'Guardando…' : 'Guardar'}
+        </button>
+        <button onClick={onCancelar} className="text-sm text-muted px-3">Cancelar</button>
+      </div>
     </div>
   )
 }
@@ -300,12 +380,21 @@ function ClientesGym({ perfil }) {
   const [refrescar, setRefrescar] = useState(0)
 
   const [sinRenovar, setSinRenovar] = useState(null)
+  const [vistaRecordar, setVistaRecordar] = useState('vencen') // vencen | mes
+  const [vencimientos, setVencimientos] = useState(null)
+  const [entrenadores, setEntrenadores] = useState([])
+  const [duplicados, setDuplicados] = useState([])
+  const [verDuplicados, setVerDuplicados] = useState(false)
+
+  const puedeEditar = perfil?.rol === 'admin'
 
   useEffect(() => {
     supabase.rpc('clientes_meses_disponibles').then(({ data }) => {
       setMeses(data || [])
       if (data && data.length > 0 && !mesElegido) setMesElegido(data[0].mes)
     })
+    supabase.rpc('entrenadores_lista').then(({ data }) => setEntrenadores(data || []))
+    supabase.rpc('clientes_duplicados').then(({ data }) => setDuplicados(data || []))
   }, [refrescar])
 
   useEffect(() => {
@@ -332,10 +421,16 @@ function ClientesGym({ perfil }) {
   }, [sub, mesElegido, refrescar])
 
   useEffect(() => {
-    if (sub !== 'recordar') return
+    if (sub !== 'recordar' || vistaRecordar !== 'mes') return
     setSinRenovar(null)
     supabase.rpc('clientes_no_renovaron').then(({ data }) => setSinRenovar(data || []))
-  }, [sub, refrescar])
+  }, [sub, vistaRecordar, refrescar])
+
+  useEffect(() => {
+    if (sub !== 'recordar' || vistaRecordar !== 'vencen') return
+    setVencimientos(null)
+    supabase.rpc('clientes_vencimientos').then(({ data }) => setVencimientos(data || []))
+  }, [sub, vistaRecordar, refrescar])
 
   async function abrir(id) {
     if (abierto === id) { setAbierto(null); return }
@@ -363,13 +458,34 @@ function ClientesGym({ perfil }) {
             className="w-full rounded-xl border border-line px-4 py-3 text-base outline-none focus:border-green" />
           {busqueda.trim() === '' && <p className="text-xs text-muted">Escribe para buscar entre todos los clientes, de cualquier mes.</p>}
           {busqueda.trim() !== '' && resultados.length === 0 && <p className="text-sm text-muted">Sin resultados.</p>}
-          {resultados.map((c) => <FilaCliente key={c.id} c={c} abierto={abierto} onAbrir={abrir} detalle={detalle} />)}
+          {resultados.map((c) => (
+            <FilaCliente key={c.id} c={c} abierto={abierto} onAbrir={abrir} detalle={detalle}
+              puedeEditar={puedeEditar} entrenadores={entrenadores}
+              onGuardado={() => { setAbierto(null); setRefrescar((r) => r + 1) }} />
+          ))}
         </div>
       )}
 
       {sub === 'directorio' && (
         <div className="space-y-3">
           {puedeImportar && <ImportarCSV onListo={() => setRefrescar((r) => r + 1)} />}
+
+          {puedeEditar && duplicados.length > 0 && (
+            <div className="rounded-xl border border-yellow bg-yellow-soft px-4 py-3">
+              <button onClick={() => setVerDuplicados((v) => !v)} className="w-full text-left">
+                <span className="text-sm font-semibold text-yellow">
+                  {duplicados.length} fichas parecen repetidas
+                </span>
+                <span className="block text-xs text-muted mt-0.5">
+                  {verDuplicados ? 'Toca para ocultar' : 'La misma persona cargada dos veces parte su historial. Toca para revisar.'}
+                </span>
+              </button>
+              {verDuplicados && (
+                <ListaDuplicados lista={duplicados} onUnido={() => setRefrescar((r) => r + 1)} />
+              )}
+            </div>
+          )}
+
           <div className="flex gap-1.5">
             <button onClick={() => setVerTodos(false)}
               className={'flex-1 py-1.5 rounded-full text-xs font-semibold border ' + (!verTodos ? 'bg-green text-white border-green' : 'border-line text-muted')}>
@@ -395,7 +511,11 @@ function ClientesGym({ perfil }) {
               <div key={entrenador}>
                 <h3 className="font-display text-xs font-semibold uppercase tracking-wide text-green-strong mb-1.5">{entrenador} · {lista.length}</h3>
                 <div className="space-y-1.5">
-                  {lista.map((c) => <FilaCliente key={c.id + (c.fecha || '')} c={c} abierto={abierto} onAbrir={abrir} detalle={detalle} />)}
+                  {lista.map((c) => (
+                    <FilaCliente key={c.id + (c.fecha || '')} c={c} abierto={abierto} onAbrir={abrir} detalle={detalle}
+                      puedeEditar={puedeEditar} entrenadores={entrenadores}
+                      onGuardado={() => { setAbierto(null); setRefrescar((r) => r + 1) }} />
+                  ))}
                 </div>
               </div>
             ))}
@@ -455,7 +575,23 @@ function ClientesGym({ perfil }) {
         </div>
       )}
 
-      {sub === 'recordar' && <Recordar lista={sinRenovar} />}
+      {sub === 'recordar' && (
+        <div className="space-y-3">
+          <div className="flex gap-1.5">
+            <button onClick={() => setVistaRecordar('vencen')}
+              className={'flex-1 py-1.5 rounded-full text-xs font-semibold border ' + (vistaRecordar === 'vencen' ? 'bg-green text-white border-green' : 'border-line text-muted')}>
+              Se les vence
+            </button>
+            <button onClick={() => setVistaRecordar('mes')}
+              className={'flex-1 py-1.5 rounded-full text-xs font-semibold border ' + (vistaRecordar === 'mes' ? 'bg-green text-white border-green' : 'border-line text-muted')}>
+              No renovaron el mes
+            </button>
+          </div>
+          {vistaRecordar === 'vencen'
+            ? <Vencimientos lista={vencimientos} />
+            : <Recordar lista={sinRenovar} />}
+        </div>
+      )}
     </div>
   )
 }
@@ -601,6 +737,176 @@ function Recordar({ lista }) {
           </button>
         </div>
       </div>
+    </div>
+  )
+}
+
+const GRUPOS_VENC = [
+  { id: 'vencido', titulo: 'Ya se les venció', tono: 'text-red', punto: 'bg-red' },
+  { id: 'vence_hoy', titulo: 'Se les vence hoy', tono: 'text-yellow', punto: 'bg-yellow' },
+  { id: 'por_vencer', titulo: 'Se les vence pronto', tono: 'text-green-strong', punto: 'bg-green' }
+]
+
+function Vencimientos({ lista }) {
+  const [seleccion, setSeleccion] = useState({})
+  const [copiado, setCopiado] = useState(false)
+  const [textoMasivo, setTextoMasivo] = useState(
+    'Hola! Somos Maykel\'s Gym. Se te está venciendo la matrícula. ¿Te esperamos esta semana? 💪'
+  )
+
+  if (lista === null) return <p className="text-sm text-muted">Cargando…</p>
+  if (lista.length === 0) {
+    return <p className="text-sm text-muted">Nadie con la matrícula vencida ni por vencerse en los próximos días. 🎉</p>
+  }
+
+  function marcar(id, val) {
+    setSeleccion((s) => ({ ...s, [id]: val }))
+  }
+
+  function marcarGrupo(clientes, val) {
+    setSeleccion((s) => {
+      const copia = { ...s }
+      for (const c of clientes) copia[c.id] = val
+      return copia
+    })
+  }
+
+  const seleccionados = lista.filter((c) => seleccion[c.id])
+  const telefonos = [...new Set(seleccionados.map((c) => (c.telefono || '').replace(/\D/g, '')).filter(Boolean))]
+
+  async function copiarTelefonos() {
+    if (telefonos.length === 0) return
+    try {
+      await navigator.clipboard.writeText(telefonos.join(','))
+      setCopiado(true)
+      setTimeout(() => setCopiado(false), 2000)
+    } catch {
+      window.prompt('Copia los teléfonos:', telefonos.join(','))
+    }
+  }
+
+  return (
+    <div className="space-y-4 pb-20">
+      <p className="text-xs text-muted">
+        Contando los días desde el último pago de cada quien. Los vencidos hace mucho no aparecen — solo los que todavía se pueden recuperar.
+      </p>
+
+      {GRUPOS_VENC.map((g) => {
+        const delGrupo = lista.filter((c) => c.estado === g.id)
+        if (delGrupo.length === 0) return null
+        const todosMarcados = delGrupo.every((c) => seleccion[c.id])
+        return (
+          <div key={g.id} className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <h3 className={'font-display text-xs font-semibold uppercase tracking-wide flex items-center gap-1.5 ' + g.tono}>
+                <span className={'w-1.5 h-1.5 rounded-full ' + g.punto} />
+                {g.titulo} · {delGrupo.length}
+              </h3>
+              <button onClick={() => marcarGrupo(delGrupo, !todosMarcados)}
+                className="text-[11px] font-semibold text-green-strong underline">
+                {todosMarcados ? 'Quitar todos' : 'Marcar todos'}
+              </button>
+            </div>
+            <div className="space-y-1.5">
+              {delGrupo.map((c) => {
+                const wa = telefonoWa(c.telefono)
+                const textoWa = `Hola ${c.nombre.split(' ')[0]}! 👋 Somos Maykel's Gym. Se te está venciendo la matrícula. ¿Te esperamos esta semana? 💪`
+                return (
+                  <label key={c.id} className="flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
+                    <input type="checkbox" checked={!!seleccion[c.id]} onChange={(e) => marcar(c.id, e.target.checked)}
+                      className="h-4 w-4 accent-green shrink-0" />
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-sm font-semibold truncate">{c.nombre}</span>
+                      <span className="block text-xs text-muted truncate">
+                        {c.dias < 0 ? `venció hace ${-c.dias} día${-c.dias === 1 ? '' : 's'}` : c.dias === 0 ? 'vence hoy' : `le quedan ${c.dias} día${c.dias === 1 ? '' : 's'}`}
+                        {' · '}{c.telefono || 'sin teléfono'}{c.entrenador ? ` · ${c.entrenador}` : ''}
+                      </span>
+                    </span>
+                    {wa && (
+                      <a href={'https://wa.me/' + wa + '?text=' + encodeURIComponent(textoWa)} target="_blank" rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-xs font-semibold text-green-strong border border-green rounded-full px-3 py-1.5 whitespace-nowrap">
+                        WhatsApp
+                      </a>
+                    )}
+                  </label>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })}
+
+      <div className="fixed bottom-16 left-0 right-0 px-4">
+        <div className="mx-auto max-w-md rounded-2xl border border-line bg-surface p-3 shadow-lg space-y-2">
+          <textarea value={textoMasivo} onChange={(e) => setTextoMasivo(e.target.value)} rows={2}
+            className="w-full rounded-xl border border-line px-3 py-2 text-xs outline-none focus:border-green" />
+          <button onClick={copiarTelefonos} disabled={telefonos.length === 0}
+            className="w-full rounded-xl bg-green text-white text-sm font-semibold py-2.5 disabled:opacity-50">
+            {copiado ? '✓ Copiados — pégalos en "Para:"' : `Copiar ${telefonos.length} ${telefonos.length === 1 ? 'teléfono' : 'teléfonos'}`}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ListaDuplicados({ lista, onUnido }) {
+  const [uniendo, setUniendo] = useState(null)
+  const [error, setError] = useState('')
+
+  // Vienen ordenadas por clave; se agrupan para mostrar cada persona junta.
+  const porClave = {}
+  for (const c of lista) {
+    if (!porClave[c.clave]) porClave[c.clave] = []
+    porClave[c.clave].push(c)
+  }
+
+  async function unir(principal, duplicado) {
+    if (uniendo) return
+    setError('')
+    setUniendo(duplicado)
+    const { error: err } = await supabase.rpc('clientes_fusionar', {
+      p_principal: principal,
+      p_duplicado: duplicado
+    })
+    setUniendo(null)
+    if (err) return setError('No se pudo unir: ' + err.message)
+    onUnido()
+  }
+
+  return (
+    <div className="mt-3 space-y-3">
+      {error && <p className="text-xs text-red">{error}</p>}
+      {Object.entries(porClave).map(([clave, fichas]) => {
+        const principal = fichas[0]
+        return (
+          <div key={clave} className="rounded-lg bg-surface border border-line p-3">
+            <div className="text-xs font-semibold mb-2">{principal.nombre}</div>
+            <div className="space-y-1.5">
+              {fichas.map((f, i) => (
+                <div key={f.id} className="flex items-center justify-between gap-2 text-[11px]">
+                  <span className="min-w-0 flex-1 truncate text-muted">
+                    {f.telefono || 'sin teléfono'} · {f.visitas} pago{f.visitas === 1 ? '' : 's'}
+                    {f.ultima ? ` · hasta ${fechaLarga(f.ultima)}` : ''}
+                  </span>
+                  {i === 0 ? (
+                    <span className="shrink-0 font-semibold text-green-strong">se queda esta</span>
+                  ) : (
+                    <button onClick={() => unir(principal.id, f.id)} disabled={!!uniendo}
+                      className="shrink-0 font-semibold text-white bg-green rounded-full px-2.5 py-1 disabled:opacity-50">
+                      {uniendo === f.id ? 'Uniendo…' : 'Unir a la de arriba'}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })}
+      <p className="text-[11px] text-muted">
+        Al unir, los pagos pasan a la ficha de arriba (la del último pago). Si el mismo día aparece en las dos, queda uno solo.
+      </p>
     </div>
   )
 }
