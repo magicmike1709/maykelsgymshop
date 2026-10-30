@@ -279,9 +279,12 @@ function normalizarFecha(f) {
   return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
 }
 
+// Devuelve { filas, traeMonto }: el CSV de la hostess normalmente no
+// trae columna de monto, y en ese caso hay que ponerle precio al
+// importar o los pagos no suman nada en Resumen.
 function parseCSVClientes(texto) {
   const lineas = texto.split(/\r?\n/).filter((l) => l.trim() !== '')
-  if (lineas.length < 2) return []
+  if (lineas.length < 2) return { filas: [], traeMonto: false }
   const header = lineas[0].replace(/^﻿/, '').split(',').map((h) => h.trim().toLowerCase())
   const col = (buscar) => header.findIndex((h) => buscar.some((b) => h.includes(b)))
   const idx = {
@@ -292,7 +295,7 @@ function parseCSVClientes(texto) {
     telefono: col(['phone', 'telefono', 'teléfono']),
     monto: col(['monto', 'pago', 'importe'])
   }
-  return lineas.slice(1).map((linea) => {
+  const filas = lineas.slice(1).map((linea) => {
     const cols = linea.split(',')
     const nombre = (cols[idx.nombre] || '').trim()
     const fecha = normalizarFecha(cols[idx.fecha])
@@ -306,36 +309,60 @@ function parseCSVClientes(texto) {
       monto: idx.monto >= 0 && cols[idx.monto]?.trim() ? Number(cols[idx.monto]) : null
     }
   }).filter(Boolean)
+  return { filas, traeMonto: idx.monto >= 0 }
 }
 
 function ImportarCSV({ onListo }) {
-  const [filas, setFilas] = useState(null)
+  const [leido, setLeido] = useState(null)
+  const [precio, setPrecio] = useState('')
   const [subiendo, setSubiendo] = useState(false)
   const [progreso, setProgreso] = useState(0)
   const [abierto, setAbierto] = useState(false)
+  const [resultado, setResultado] = useState('')
+
+  useEffect(() => {
+    if (!abierto) return
+    supabase.rpc('config_lista').then(({ data }) => {
+      const p = (data || []).find((c) => c.clave === 'precio_matricula')
+      setPrecio(p?.valor || '5000')
+    })
+  }, [abierto])
+
+  const filas = leido?.filas || []
+  const precioNum = Number(precio) > 0 ? Number(precio) : null
+  // Si el archivo no trae monto, cada fila se cobra al precio de abajo.
+  const montoDe = (f) => (leido?.traeMonto ? f.monto : f.monto ?? precioNum)
+  const totalCUP = filas.reduce((s, f) => s + (montoDe(f) || 0), 0)
+  const conMonto = filas.filter((f) => montoDe(f)).length
 
   function elegirArchivo(e) {
     const archivo = e.target.files?.[0]
     if (!archivo) return
+    setResultado('')
     const lector = new FileReader()
-    lector.onload = () => setFilas(parseCSVClientes(String(lector.result)))
+    lector.onload = () => setLeido(parseCSVClientes(String(lector.result)))
     lector.readAsText(archivo)
   }
 
   async function subir() {
-    if (!filas || filas.length === 0) return
+    if (filas.length === 0) return
     setSubiendo(true)
     setProgreso(0)
+    let fallos = 0
+    let ultimoError = ''
     for (let i = 0; i < filas.length; i++) {
       const f = filas[i]
-      await supabase.rpc('cliente_visita_registrar', {
-        p_nombre: f.nombre, p_fecha: f.fecha, p_telefono: f.telefono, p_sexo: f.sexo, p_entrenador: f.entrenador, p_monto: f.monto
+      const { error } = await supabase.rpc('cliente_visita_registrar', {
+        p_nombre: f.nombre, p_fecha: f.fecha, p_telefono: f.telefono, p_sexo: f.sexo, p_entrenador: f.entrenador, p_monto: montoDe(f)
       })
+      if (error) { fallos++; ultimoError = error.message }
       setProgreso(i + 1)
     }
     setSubiendo(false)
-    setFilas(null)
-    setAbierto(false)
+    setLeido(null)
+    setResultado(fallos
+      ? `Se cargaron ${filas.length - fallos} de ${filas.length}. ${fallos} fallaron: ${ultimoError}`
+      : `Listo: ${filas.length} registros, $${totalCUP.toLocaleString('en-US')} CUP sumados a matrículas.`)
     onListo()
   }
 
@@ -348,22 +375,97 @@ function ImportarCSV({ onListo }) {
       <p className="text-xs text-muted">Columnas esperadas: Nombre, Fecha (dd/m/aaaa), Sexo, Entrenador, Phone — y Monto si lo tienes.</p>
       <input type="file" accept=".csv" onChange={elegirArchivo}
         className="w-full text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-green file:text-white file:px-3 file:py-1.5 file:text-xs" />
-      {filas && !subiendo && (
-        <p className="text-sm font-semibold">{filas.length} registros detectados.</p>
+      {leido && !subiendo && !leido.traeMonto && filas.length > 0 && (
+        <div className="rounded-lg bg-surface border border-yellow/50 p-2.5 space-y-1.5">
+          <p className="text-xs">Este archivo <b>no trae el monto</b>. ¿Cuánto pagó cada uno?</p>
+          <div className="flex items-center gap-2">
+            <input value={precio} onChange={(e) => setPrecio(e.target.value)} type="number" min="0" inputMode="numeric"
+              className="w-28 rounded-lg border border-line px-2 py-1.5 text-sm outline-none focus:border-green" />
+            <span className="text-xs text-muted">CUP cada uno (vacío = solo asistencia, no suma dinero)</span>
+          </div>
+        </div>
+      )}
+      {leido && !subiendo && (
+        <p className="text-sm font-semibold">
+          {filas.length} registros · {conMonto} pagos · ${totalCUP.toLocaleString('en-US')} CUP
+        </p>
       )}
       {subiendo && <p className="text-sm text-muted">Cargando {progreso} de {filas.length}…</p>}
+      {resultado && <p className="text-sm">{resultado}</p>}
       <div className="flex gap-2">
-        {filas && !subiendo && (
+        {leido && !subiendo && filas.length > 0 && (
           <button onClick={subir} className="flex-1 rounded-xl bg-green text-white text-sm font-semibold py-2">Cargar {filas.length} registros</button>
         )}
-        <button onClick={() => { setAbierto(false); setFilas(null) }} className="text-sm text-muted px-3">Cancelar</button>
+        <button onClick={() => { setAbierto(false); setLeido(null); setResultado('') }} className="text-sm text-muted px-3">
+          {resultado ? 'Cerrar' : 'Cancelar'}
+        </button>
       </div>
     </div>
   )
 }
 
+// Meses con pagos importados sin monto: el dueño les pone precio de
+// un golpe para que el dinero aparezca en Resumen. No toca los que
+// ya tienen monto (casos sociales, rebajas).
+function CompletarMontos({ refrescar, onListo }) {
+  const [meses, setMeses] = useState([])
+  const [precio, setPrecio] = useState('5000')
+  const [trabajando, setTrabajando] = useState(null)
+  const [mensaje, setMensaje] = useState('')
+
+  async function cargar() {
+    const [{ data }, { data: cfg }] = await Promise.all([
+      supabase.rpc('visitas_sin_monto'),
+      supabase.rpc('config_lista')
+    ])
+    setMeses(data || [])
+    const p = (cfg || []).find((c) => c.clave === 'precio_matricula')
+    if (p?.valor) setPrecio(p.valor)
+  }
+
+  useEffect(() => { cargar() }, [refrescar])
+
+  async function completar(mes) {
+    if (trabajando || !(Number(precio) > 0)) return
+    setMensaje(''); setTrabajando(mes)
+    const { data, error } = await supabase.rpc('visitas_completar_monto', { p_mes: mes, p_monto: Number(precio) })
+    setTrabajando(null)
+    if (error) return setMensaje('No se pudo: ' + error.message)
+    setMensaje(`${mesLabel(mes)}: ${data.actualizadas} pagos a $${Number(precio).toLocaleString('en-US')} CUP.`)
+    cargar()
+    onListo()
+  }
+
+  if (meses.length === 0 && !mensaje) return null
+
+  return (
+    <div className="rounded-xl border border-yellow/60 bg-surface p-3 space-y-2">
+      <p className="text-sm font-semibold">Pagos sin monto</p>
+      <p className="text-xs text-muted">
+        Estos clientes se cargaron sin precio y no suman en Resumen. Ponles el precio para que aparezca el dinero
+        (los que ya tienen otro precio no se tocan).
+      </p>
+      <div className="flex items-center gap-2">
+        <input value={precio} onChange={(e) => setPrecio(e.target.value)} type="number" min="0" inputMode="numeric"
+          className="w-28 rounded-lg border border-line px-2 py-1.5 text-sm outline-none focus:border-green" />
+        <span className="text-xs text-muted">CUP cada uno</span>
+      </div>
+      {meses.map((m) => (
+        <div key={m.mes} className="flex items-center justify-between text-sm">
+          <span>{mesLabel(m.mes)} · {m.sin_monto} sin monto</span>
+          <button onClick={() => completar(m.mes)} disabled={!!trabajando}
+            className="text-xs font-semibold text-white bg-green rounded-full px-3 py-1.5 disabled:opacity-50">
+            {trabajando === m.mes ? 'Guardando…' : `+$${(m.sin_monto * (Number(precio) || 0)).toLocaleString('en-US')}`}
+          </button>
+        </div>
+      ))}
+      {mensaje && <p className="text-xs text-green-strong">{mensaje}</p>}
+    </div>
+  )
+}
+
 function ClientesGym({ perfil }) {
-  const puedeImportar = perfil?.rol === 'admin' || perfil?.rol === 'operador_plus'
+  const puedeImportar = perfil?.rol === 'admin'
   const [sub, setSub] = useState('directorio') // buscar | directorio | estadisticas
   const [abierto, setAbierto] = useState(null)
   const [detalle, setDetalle] = useState(null)
@@ -469,6 +571,7 @@ function ClientesGym({ perfil }) {
       {sub === 'directorio' && (
         <div className="space-y-3">
           {puedeImportar && <ImportarCSV onListo={() => setRefrescar((r) => r + 1)} />}
+          {puedeImportar && <CompletarMontos refrescar={refrescar} onListo={() => setRefrescar((r) => r + 1)} />}
 
           {puedeEditar && duplicados.length > 0 && (
             <div className="rounded-xl border border-yellow bg-yellow-soft px-4 py-3">
