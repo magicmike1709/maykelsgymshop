@@ -132,7 +132,7 @@ export default function Equipo() {
       {mensaje && <p className="text-sm text-red rounded-xl border border-red/30 bg-surface px-4 py-2.5">{mensaje}</p>}
 
       {comisionesPend.length > 0 && (
-        <Bloque titulo="Comisiones pendientes" tono="text-yellow">
+        <Bloque titulo="Comisiones pendientes" tono="text-yellow-ink">
           <div className="space-y-2">
             {comisionesPend.map((c) => (
               <div key={c.gestor_id} className="flex items-center justify-between text-sm">
@@ -151,7 +151,7 @@ export default function Equipo() {
       )}
 
       {mensajeriaPend.length > 0 && (
-        <Bloque titulo="Mensajeros con dinero pendiente" tono="text-yellow">
+        <Bloque titulo="Mensajeros con dinero pendiente" tono="text-yellow-ink">
           <div className="space-y-2">
             {mensajeriaPend.map((m) => (
               <div key={m.mensajero_id} className="flex items-center justify-between text-sm">
@@ -170,7 +170,7 @@ export default function Equipo() {
       )}
 
       {sociosPend.length > 0 && (
-        <Bloque titulo="Socios por liquidar" tono="text-yellow">
+        <Bloque titulo="Socios por liquidar" tono="text-yellow-ink">
           <div className="space-y-2">
             {sociosPend.map((s) => (
               <div key={s.socio_id} className="flex items-center justify-between text-sm">

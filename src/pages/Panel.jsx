@@ -70,27 +70,29 @@ export default function Panel() {
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-30 bg-bg/85 backdrop-blur-md border-b border-line px-5 pt-6 pb-4">
-        <div className="text-xs font-bold tracking-widest uppercase text-green-strong flex items-center gap-2 mb-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-yellow" />
-          {perfil?.rol_nombre || '…'}
-        </div>
-        <div className="flex items-center justify-between">
+      <header className="sticky top-0 z-30 bg-bg border-b border-line px-5 pt-[max(env(safe-area-inset-top),12px)] pb-3">
+        <div className="max-w-md mx-auto flex items-center gap-3">
           <button
             onClick={() => setMenuAbierto(true)}
             aria-label="Abrir menú"
-            className="w-9 h-9 -ml-1.5 flex flex-col items-center justify-center gap-[5px] rounded-lg active:bg-sunken"
+            className="w-11 h-11 -ml-2.5 flex flex-col items-center justify-center gap-[5px] rounded-full active:bg-sunken"
           >
             <span className="w-5 h-0.5 bg-ink rounded-full" />
             <span className="w-5 h-0.5 bg-ink rounded-full" />
             <span className="w-5 h-0.5 bg-ink rounded-full" />
           </button>
-          <h1 className="font-display font-bold uppercase text-2xl tracking-tight">
-            {tabs.find((t) => t.id === tab)?.label || 'Panel'}
-          </h1>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 text-xs text-muted">
+              <img src="/icon.svg" alt="" className="w-4 h-4" />
+              <span className="truncate">Maykelsgym Shop · {perfil?.rol_nombre || '…'}</span>
+            </div>
+            <h1 className="font-display font-bold uppercase text-2xl leading-tight tracking-tight truncate">
+              {tabs.find((t) => t.id === tab)?.label || 'Panel'}
+            </h1>
+          </div>
           <button
             onClick={() => supabase.auth.signOut()}
-            className="text-xs font-semibold text-muted border border-line rounded-full px-3 py-1.5"
+            className="min-h-[36px] text-sm font-semibold text-muted border border-line rounded-full px-3.5"
           >
             Salir
           </button>
@@ -118,29 +120,30 @@ export default function Panel() {
       </main>
 
       <div className={'fixed inset-0 z-50 transition-opacity duration-300 ease-ios ' + (menuAbierto ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none')}>
-        <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px]" onClick={() => setMenuAbierto(false)} />
+        <div className="absolute inset-0 bg-black/40" onClick={() => setMenuAbierto(false)} />
         <nav className={
           'absolute inset-y-0 left-0 w-72 max-w-[80vw] bg-surface shadow-lg flex flex-col rounded-r-3xl overflow-hidden transition-transform duration-300 ease-ios ' +
           (menuAbierto ? 'translate-x-0' : '-translate-x-full')
         }>
-          <div className="px-5 pt-6 pb-4">
-            <div className="text-xs font-bold tracking-widest uppercase text-green-strong flex items-center gap-2 mb-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-yellow" />
-              Maykelsgym Shop
+          <div className="px-5 pt-6 pb-4 flex items-center gap-3">
+            <img src="/icon.svg" alt="" className="w-9 h-9" />
+            <div>
+              <div className="font-display font-bold uppercase text-lg leading-tight">Maykelsgym Shop</div>
+              <div className="text-sm text-muted">{perfil?.rol_nombre}</div>
             </div>
-            <div className="text-sm text-muted">{perfil?.rol_nombre}</div>
           </div>
           <div className="flex-1 overflow-y-auto py-2 px-2">
             {grupos.map((g) => (
               <div key={g.titulo} className="mb-2">
-                <div className="px-4 pt-2 pb-1 text-[10px] font-bold uppercase tracking-widest text-muted">{g.titulo}</div>
+                <div className="px-4 pt-2 pb-1 text-xs font-semibold text-muted">{g.titulo}</div>
                 {g.items.map((t) => (
                   <button
                     key={t.id}
                     onClick={() => elegir(t.id)}
+                    aria-current={tab === t.id ? 'page' : undefined}
                     className={
-                      'w-full text-left px-4 py-3 my-0.5 rounded-xl text-sm font-semibold ' +
-                      (tab === t.id ? 'text-white bg-green' : 'text-ink active:bg-sunken')
+                      'w-full text-left px-4 py-3 my-0.5 rounded-xl text-sm ' +
+                      (tab === t.id ? 'font-semibold text-ink bg-sunken' : 'text-ink active:bg-sunken')
                     }
                   >
                     {t.label}

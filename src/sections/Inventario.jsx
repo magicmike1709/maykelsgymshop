@@ -202,7 +202,7 @@ export default function Inventario({ perfil }) {
       <section className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
         <button onClick={cargarDormida} className="w-full flex items-center justify-between text-left">
           <div>
-            <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-yellow">Plata dormida</h2>
+            <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-yellow-ink">Plata dormida</h2>
             <p className="text-xs text-muted mt-0.5">Productos con mucho tiempo sin venderse</p>
           </div>
           <span className="text-xs text-muted">{dormidaAbierta ? '−' : '+'}</span>

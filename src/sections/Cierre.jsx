@@ -9,7 +9,7 @@ function tonoDescuadre(d) {
   if (d === null || d === undefined) return 'text-muted'
   const abs = Math.abs(Number(d))
   if (abs === 0) return 'text-green-strong'
-  if (abs < 1000) return 'text-yellow'
+  if (abs < 1000) return 'text-yellow-ink'
   return 'text-red'
 }
 
@@ -79,14 +79,14 @@ export default function Cierre() {
             </p>
           )}
           {alerta.sin_conteo > 0 && (
-            <p className="text-sm text-yellow font-semibold mt-1">{alerta.sin_conteo} cierre{alerta.sin_conteo === 1 ? '' : 's'} sin conteo de caja registrado.</p>
+            <p className="text-sm text-yellow-ink font-semibold mt-1">{alerta.sin_conteo} cierre{alerta.sin_conteo === 1 ? '' : 's'} sin conteo de caja registrado.</p>
           )}
         </section>
       )}
 
       <section className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
         <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-green-strong mb-1">Hoy</h2>
-        {hoyCerrado && <p className="text-sm text-yellow font-semibold mb-2">Ya cerraste el día de hoy.</p>}
+        {hoyCerrado && <p className="text-sm text-yellow-ink font-semibold mb-2">Ya cerraste el día de hoy.</p>}
         {!hoyCerrado && (
           <>
             <p className="text-xs text-muted mb-3">
@@ -113,7 +113,7 @@ export default function Cierre() {
             <div key={c.id} className="rounded-xl border border-line bg-surface px-4 py-3">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-sm font-semibold">{c.dia}</span>
-                <span className={'text-[11px] font-bold uppercase px-2 py-0.5 rounded-full ' + (c.estado === 'cerrado' ? 'bg-green-soft text-green-strong' : 'bg-yellow-soft text-yellow')}>
+                <span className={'text-[11px] font-bold uppercase px-2 py-0.5 rounded-full ' + (c.estado === 'cerrado' ? 'bg-green-soft text-green-strong' : 'bg-yellow-soft text-yellow-ink')}>
                   {c.estado}
                 </span>
               </div>

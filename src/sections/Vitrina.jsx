@@ -274,7 +274,7 @@ export default function Vitrina() {
               return (
                 <button key={c.id} onClick={() => tocarCombo(c)}
                   className="text-left rounded-xl border-2 border-yellow bg-yellow-soft px-3 py-3 shadow-sm active:opacity-80">
-                  <div className="text-[10px] font-bold uppercase tracking-wide text-yellow mb-0.5">Combo</div>
+                  <div className="text-[10px] font-bold uppercase tracking-wide text-yellow-ink mb-0.5">Combo</div>
                   <div className="text-sm font-semibold">{c.nombre}</div>
                   <div className="text-xs text-muted tabular-nums">${Number(c.precio).toLocaleString('en-US')}</div>
                   {carrito[clave] > 0 && (

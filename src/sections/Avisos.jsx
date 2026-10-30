@@ -85,7 +85,7 @@ export default function Avisos({ perfil }) {
                   {(a.confirmaciones || []).length === 0 && <span className="text-[11px] text-muted">Nadie lo ha visto todavía</span>}
                 </div>
                 {!yoConfirme && (
-                  <button onClick={() => confirmar(a.id)} className="text-xs font-semibold text-yellow border border-yellow rounded-full px-3 py-1 flex-shrink-0">
+                  <button onClick={() => confirmar(a.id)} className="text-xs font-semibold text-yellow-ink border border-yellow rounded-full px-3 py-1 flex-shrink-0">
                     Ya lo vi
                   </button>
                 )}

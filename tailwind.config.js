@@ -11,7 +11,7 @@ export default {
         muted: '#5b6353',
         line: '#dde0cd',
         green: { DEFAULT: '#2f7d32', strong: '#1e5522', soft: '#e3f0e0' },
-        yellow: { DEFAULT: '#d9a418', soft: '#faf0d0' },
+        yellow: { DEFAULT: '#d9a418', soft: '#faf0d0', ink: '#7d5700' },
         blue: { DEFAULT: '#2f6d9e', soft: '#e2edf5' },
         red: { DEFAULT: '#b8453c', soft: '#f7e4e1' }
       },
@@ -25,8 +25,10 @@ export default {
         '3xl': '1.75rem'
       },
       boxShadow: {
-        sm: '0 1px 2px rgba(28,35,23,0.04), 0 1px 1px rgba(28,35,23,0.03)',
-        DEFAULT: '0 1px 2px rgba(28,35,23,0.04), 0 2px 6px rgba(28,35,23,0.05)',
+        // Las tarjetas en reposo no llevan sombra: se separan con su borde.
+        // La sombra queda solo para lo que flota (menú, avisos fijos).
+        sm: 'none',
+        DEFAULT: 'none',
         lg: '0 4px 10px rgba(28,35,23,0.06), 0 12px 28px -8px rgba(28,35,23,0.14)'
       },
       transitionTimingFunction: {

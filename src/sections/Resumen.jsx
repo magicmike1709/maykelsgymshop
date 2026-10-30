@@ -50,7 +50,7 @@ function textoWhatsapp(periodo, r, mes, anio) {
   if (periodo === 'mes') etiqueta = mes
   if (periodo === 'anio') etiqueta = anio
   const lineas = [
-    `🏋️ Maykel's Gym — ${etiqueta}`,
+    `🏋️ Maykel's Gym — ${etiqueta}`, // taste-skill-ignore: es el texto del mensaje de WhatsApp, no la pantalla
     `Matrículas: ${n(r.cup.matriculas)} CUP (${r.cup.matriculas_pagos} pagos)`,
     `Nevera: vendido ${n(r.cup.nevera_ventas)} · ganancia ${n(r.cup.nevera_ganancia)} CUP`,
     `Neto CUP: ${n(r.cup.neto)}`,
@@ -61,21 +61,69 @@ function textoWhatsapp(periodo, r, mes, anio) {
   return lineas.join('\n')
 }
 
-function Tile({ label, value, sub, tono = 'text-ink' }) {
+// Un selector de una sola fila: el elegido se ve blanco sobre la pista gris.
+function Segmentos({ opciones, valor, onCambiar }) {
   return (
-    <div className="rounded-xl border border-line bg-surface px-3 py-2.5 shadow-sm">
-      <div className="text-[10px] uppercase tracking-wide text-muted font-semibold mb-0.5 leading-tight">{label}</div>
-      <div className={'text-lg font-bold tabular-nums leading-tight ' + tono}>{value}</div>
-      {sub && <div className="text-[10px] text-muted mt-0.5">{sub}</div>}
+    <div className="flex gap-1 rounded-full bg-sunken p-1">
+      {opciones.map((o) => (
+        <button key={o.id} onClick={() => onCambiar(o.id)}
+          className={'flex-1 min-h-[36px] rounded-full text-sm font-semibold ' +
+            (valor === o.id ? 'bg-surface text-ink border border-line' : 'text-muted border border-transparent')}>
+          {o.label}
+        </button>
+      ))}
     </div>
   )
 }
 
-function Grupo({ titulo, tono, children }) {
+// Una cifra con su etiqueta encima, para las franjas divididas.
+function Cifra({ label, value, sub, tono = 'text-ink' }) {
+  return (
+    <div className="px-4 py-3">
+      <div className="text-xs text-muted">{label}</div>
+      <div className={'text-xl font-semibold tabular-nums leading-tight mt-0.5 ' + tono}>{value}</div>
+      {sub && <div className="text-xs text-muted mt-0.5">{sub}</div>}
+    </div>
+  )
+}
+
+// Varias cifras en una sola tarjeta, separadas por líneas finas.
+function Franja({ titulo, children }) {
   return (
     <section>
-      <h2 className={'font-display text-xs font-semibold uppercase tracking-wide mb-2 ' + tono}>{titulo}</h2>
-      <div className="grid grid-cols-3 gap-2">{children}</div>
+      {titulo && <h2 className="text-sm font-semibold mb-2">{titulo}</h2>}
+      <div className="grid grid-cols-2 rounded-2xl border border-line bg-surface divide-line [&>*]:border-line [&>*:nth-child(odd)]:border-r [&>*:nth-child(n+3)]:border-t">
+        {children}
+      </div>
+    </section>
+  )
+}
+
+// Una fila de cuenta: concepto a la izquierda, cifra a la derecha.
+function Fila({ label, sub, value, tono = 'text-ink', fuerte = false }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 px-4 py-3">
+      <div className="min-w-0">
+        <div className={'text-sm ' + (fuerte ? 'font-semibold' : '')}>{label}</div>
+        {sub && <div className="text-xs text-muted mt-0.5">{sub}</div>}
+      </div>
+      <div className={'text-sm tabular-nums whitespace-nowrap ' + (fuerte ? 'font-semibold ' : '') + tono}>{value}</div>
+    </div>
+  )
+}
+
+// La caja de una moneda: el neto arriba, grande, y debajo la cuenta que lo da.
+function Caja({ titulo, neto, unidad, tono, children }) {
+  return (
+    <section className="rounded-2xl border border-line bg-surface">
+      <div className="px-4 pt-4 pb-3">
+        <h2 className="text-sm font-semibold text-muted">{titulo}</h2>
+        <div className="flex items-baseline gap-1.5 mt-1">
+          <span className={'text-[32px] leading-none font-bold tabular-nums ' + tono}>{neto}</span>
+          <span className="text-sm text-muted">{unidad}</span>
+        </div>
+      </div>
+      <div className="border-t border-line divide-y divide-line">{children}</div>
     </section>
   )
 }
@@ -92,10 +140,11 @@ function variacion(actualStr, anteriorStr) {
 }
 
 function Flecha({ pct }) {
-  if (pct === null) return <span className="text-muted">—</span>
-  const subiendo = pct >= 0
+  if (pct === null) return <span className="text-muted w-14 text-right">nuevo</span>
+  if (Math.round(pct) === 0) return <span className="text-muted w-14 text-right">igual</span>
+  const subiendo = pct > 0
   return (
-    <span className={'font-semibold ' + (subiendo ? 'text-green-strong' : 'text-red')}>
+    <span className={'font-semibold w-14 text-right ' + (subiendo ? 'text-green-strong' : 'text-red')}>
       {subiendo ? '▲' : '▼'} {Math.abs(pct).toFixed(0)}%
     </span>
   )
@@ -103,7 +152,7 @@ function Flecha({ pct }) {
 
 function ComparativaFila({ label, actual, anterior, prefijo = '' }) {
   return (
-    <div className="flex items-center justify-between rounded-xl border border-line bg-surface px-4 py-2.5 text-sm">
+    <div className="flex items-center justify-between px-4 py-3 text-sm">
       <span className="font-semibold">{label}</span>
       <div className="flex items-center gap-2 tabular-nums">
         <span className="text-muted">{prefijo}{n(anterior)}</span>
@@ -129,14 +178,12 @@ function Tendencia() {
 
   return (
     <section>
-      <h2 className="font-display text-xs font-semibold uppercase tracking-wide mb-2 text-green-strong">
-        Tendencia · últimos {meses.length} meses
-      </h2>
-      <div className="space-y-2">
+      <h2 className="text-sm font-semibold mb-2">Neto de los últimos {meses.length} meses</h2>
+      <div className="rounded-2xl border border-line bg-surface divide-y divide-line">
         {meses.map((m) => (
-          <div key={m.mes} className="rounded-xl border border-line bg-surface px-3 py-2">
-            <div className="flex items-center justify-between text-xs font-semibold mb-1">
-              <span>{m.mes}</span>
+          <div key={m.mes} className="px-4 py-3">
+            <div className="flex items-center justify-between text-sm mb-1.5">
+              <span className="font-semibold">{m.mes}</span>
               <span className="tabular-nums">
                 <span className="text-green-strong">{n(m.neto_cup)} CUP</span>
                 <span className="text-muted"> · </span>
@@ -145,7 +192,7 @@ function Tendencia() {
             </div>
             <div className="flex gap-1 h-1.5">
               <div className="flex-1 rounded-full bg-sunken overflow-hidden">
-                <div className="h-full bg-green-strong rounded-full" style={{ width: Math.max(4, Math.abs(Number(m.neto_cup)) / maxCup * 100) + '%' }} />
+                <div className="h-full bg-green rounded-full" style={{ width: Math.max(4, Math.abs(Number(m.neto_cup)) / maxCup * 100) + '%' }} />
               </div>
               <div className="flex-1 rounded-full bg-sunken overflow-hidden">
                 <div className="h-full bg-blue rounded-full" style={{ width: Math.max(4, Math.abs(Number(m.neto_usd)) / maxUsd * 100) + '%' }} />
@@ -183,23 +230,23 @@ function Exportar() {
   }
 
   return (
-    <section className="rounded-2xl border border-line bg-surface p-4 shadow-sm space-y-3">
-      <h2 className="font-display text-xs font-semibold uppercase tracking-wide text-green-strong">Exportar datos</h2>
-      <p className="text-xs text-muted">Descarga un respaldo en Excel/CSV de matrículas, nevera, vitrina y gastos del rango elegido — para guardar aparte de la app.</p>
+    <section className="rounded-2xl border border-line bg-surface p-4 space-y-3">
+      <h2 className="text-sm font-semibold">Exportar datos</h2>
+      <p className="text-sm text-muted">Descarga un respaldo en Excel/CSV de matrículas, nevera, vitrina y gastos del rango elegido — para guardar aparte de la app.</p>
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <label className="block text-[11px] font-semibold text-muted mb-1">Desde</label>
+          <label className="block text-xs text-muted mb-1">Desde</label>
           <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)}
-            className="w-full rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-green" />
+            className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-green" />
         </div>
         <div>
-          <label className="block text-[11px] font-semibold text-muted mb-1">Hasta</label>
+          <label className="block text-xs text-muted mb-1">Hasta</label>
           <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)}
-            className="w-full rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-green" />
+            className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-green" />
         </div>
       </div>
       <button onClick={exportar} disabled={exportando}
-        className="w-full rounded-xl bg-green text-white font-semibold py-2.5 text-sm disabled:opacity-60">
+        className="w-full min-h-[44px] rounded-full border border-line bg-surface text-ink font-semibold text-sm disabled:opacity-60">
         {exportando ? 'Generando…' : 'Descargar CSV'}
       </button>
     </section>
@@ -224,22 +271,16 @@ function Comparar() {
 
   return (
     <div className="space-y-6 pb-4">
-      <div className="flex gap-1.5">
-        {[{ id: 'semana', label: 'Semana vs semana' }, { id: 'mes', label: 'Mes vs mes' }].map((t) => (
-          <button key={t.id} onClick={() => setTipo(t.id)}
-            className={'flex-1 py-2 rounded-full text-xs font-semibold border ' +
-              (tipo === t.id ? 'bg-green text-white border-green' : 'border-line text-muted')}>
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <Segmentos
+        opciones={[{ id: 'semana', label: 'Semana vs semana' }, { id: 'mes', label: 'Mes vs mes' }]}
+        valor={tipo} onCambiar={setTipo} />
 
       {!comp ? <p className="text-sm text-muted">Cargando…</p> : (
         <section>
-          <h2 className="font-display text-xs font-semibold uppercase tracking-wide mb-2 text-green-strong">
-            {comp.actual.desde} → {comp.actual.hasta} vs. período anterior
+          <h2 className="text-sm font-semibold mb-2">
+            {comp.actual.desde} → {comp.actual.hasta} <span className="font-normal text-muted">contra el período anterior</span>
           </h2>
-          <div className="space-y-1.5">
+          <div className="rounded-2xl border border-line bg-surface divide-y divide-line">
             <ComparativaFila label="Neto CUP" actual={comp.actual.cup.neto} anterior={comp.anterior.cup.neto} />
             <ComparativaFila label="Neto USD" actual={comp.actual.usd.neto} anterior={comp.anterior.usd.neto} prefijo="$" />
             <ComparativaFila label="Matrículas" actual={comp.actual.cup.matriculas} anterior={comp.anterior.cup.matriculas} />
@@ -250,38 +291,31 @@ function Comparar() {
       )}
 
       {proyeccion && (
-        <section>
-          <h2 className="font-display text-xs font-semibold uppercase tracking-wide mb-2 text-yellow">
-            Proyección de cierre de mes (día {proyeccion.dias_transcurridos} de {proyeccion.dias_mes})
-          </h2>
-          <div className="grid grid-cols-2 gap-2">
-            <Tile label="Neto CUP hoy" value={n(proyeccion.neto_cup_actual)} />
-            <Tile label="Proyectado CUP" value={n(proyeccion.neto_cup_proyectado)} tono="text-green-strong" />
-            <Tile label="Neto USD hoy" value={'$' + n(proyeccion.neto_usd_actual)} />
-            <Tile label="Proyectado USD" value={'$' + n(proyeccion.neto_usd_proyectado)} tono="text-blue" />
-          </div>
-        </section>
+        <Franja titulo={`Cierre de mes proyectado · día ${proyeccion.dias_transcurridos} de ${proyeccion.dias_mes}`}>
+          <Cifra label="Neto CUP hasta hoy" value={n(proyeccion.neto_cup_actual)} />
+          <Cifra label="Proyectado CUP" value={n(proyeccion.neto_cup_proyectado)} tono="text-green-strong" />
+          <Cifra label="Neto USD hasta hoy" value={'$' + n(proyeccion.neto_usd_actual)} />
+          <Cifra label="Proyectado USD" value={'$' + n(proyeccion.neto_usd_proyectado)} tono="text-blue" />
+        </Franja>
       )}
 
       {margenes && (
         <section>
-          <h2 className="font-display text-xs font-semibold uppercase tracking-wide mb-2 text-green-strong">
-            Margen por categoría · este mes
-          </h2>
-          {margenes.length === 0 && <p className="text-sm text-muted">Sin ventas por categoría este mes.</p>}
-          <div className="space-y-1.5">
-            {margenes.map((m, i) => (
-              <div key={i} className="flex items-center justify-between rounded-xl border border-line bg-surface px-4 py-2.5 text-sm">
-                <span className="font-semibold">{m.categoria} <span className="text-muted font-normal">({m.moneda})</span></span>
-                <span className="tabular-nums">
-                  <span className={m.moneda === 'USD' ? 'text-blue' : 'text-green-strong'}>
-                    {m.moneda === 'USD' ? '$' : ''}{n(m.ganancia)}
-                  </span>
-                  <span className="text-muted"> · {m.margen_pct}%</span>
-                </span>
-              </div>
-            ))}
-          </div>
+          <h2 className="text-sm font-semibold mb-2">Margen por categoría · este mes</h2>
+          {margenes.length === 0 ? (
+            <p className="rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-muted">Sin ventas por categoría este mes.</p>
+          ) : (
+            <div className="rounded-2xl border border-line bg-surface divide-y divide-line">
+              {margenes.map((m, i) => (
+                <Fila key={i}
+                  label={<>{m.categoria} <span className="text-muted">({m.moneda})</span></>}
+                  value={<>
+                    <span className={m.moneda === 'USD' ? 'text-blue' : 'text-green-strong'}>{m.moneda === 'USD' ? '$' : ''}{n(m.ganancia)}</span>
+                    <span className="text-muted"> · {m.margen_pct}%</span>
+                  </>} />
+              ))}
+            </div>
+          )}
         </section>
       )}
 
@@ -291,54 +325,66 @@ function Comparar() {
   )
 }
 
-function PanelHoy() {
-  const [hoy, setHoy] = useState(null)
+function plural(cant, uno, varios) {
+  return `${cant} ${cant === 1 ? uno : varios}`
+}
 
+// Lo de hoy (alertas, ayer y el mes proyectado) no depende del período elegido.
+function usePanelHoy() {
+  const [hoy, setHoy] = useState(null)
   useEffect(() => {
     supabase.rpc('panel_hoy').then(({ data }) => setHoy(data))
   }, [])
+  return hoy
+}
 
+// Lo que hay que revisar hoy: va primero en la pantalla.
+function Alertas({ hoy }) {
   if (!hoy) return null
 
   const a = hoy.alertas
-  const tieneAlertas = a.descuadres > 0 || a.sin_conteo > 0 || a.clientes_sin_renovar > 0 || a.avisos_activos > 0
+  const alertas = [
+    a.descuadres > 0 && { grave: true, texto: `${plural(a.descuadres, 'descuadre', 'descuadres')} de caja en 30 días` },
+    a.sin_conteo > 0 && { texto: `${plural(a.sin_conteo, 'cierre', 'cierres')} sin contar caja` },
+    a.clientes_sin_renovar > 0 && { texto: `${plural(a.clientes_sin_renovar, 'cliente', 'clientes')} sin renovar este mes` },
+    a.avisos_activos > 0 && { texto: `${plural(a.avisos_activos, 'aviso activo', 'avisos activos')} (stock bajo, etc.)` }
+  ].filter(Boolean)
 
   return (
-    <section className="rounded-2xl border border-line bg-surface p-4 shadow-sm space-y-3">
-      <h2 className="font-display text-xs font-semibold uppercase tracking-wide text-muted">Hoy</h2>
-
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <div className="text-[10px] uppercase tracking-wide text-muted font-semibold">Ayer · CUP</div>
-          <div className="text-lg font-bold tabular-nums text-green-strong">{n(hoy.ayer.cup.neto)}</div>
-        </div>
-        <div>
-          <div className="text-[10px] uppercase tracking-wide text-muted font-semibold">Ayer · USD</div>
-          <div className="text-lg font-bold tabular-nums text-blue">${n(hoy.ayer.usd.neto)}</div>
-        </div>
-        <div>
-          <div className="text-[10px] uppercase tracking-wide text-muted font-semibold">Proyección mes · CUP</div>
-          <div className="text-lg font-bold tabular-nums">{n(hoy.proyeccion.neto_cup_proyectado)}</div>
-        </div>
-        <div>
-          <div className="text-[10px] uppercase tracking-wide text-muted font-semibold">Proyección mes · USD</div>
-          <div className="text-lg font-bold tabular-nums">${n(hoy.proyeccion.neto_usd_proyectado)}</div>
-        </div>
-      </div>
-
-      {tieneAlertas ? (
-        <div className="space-y-1 pt-1 border-t border-line">
-          {a.descuadres > 0 && <p className="text-xs text-red font-semibold">⚠️ {a.descuadres} descuadre{a.descuadres === 1 ? '' : 's'} de caja (30 días)</p>}
-          {a.sin_conteo > 0 && <p className="text-xs text-yellow font-semibold">{a.sin_conteo} cierre{a.sin_conteo === 1 ? '' : 's'} sin contar caja</p>}
-          {a.clientes_sin_renovar > 0 && <p className="text-xs text-yellow font-semibold">{a.clientes_sin_renovar} cliente{a.clientes_sin_renovar === 1 ? '' : 's'} sin renovar este mes</p>}
-          {a.avisos_activos > 0 && <p className="text-xs text-yellow font-semibold">{a.avisos_activos} aviso{a.avisos_activos === 1 ? '' : 's'} activo{a.avisos_activos === 1 ? '' : 's'} (stock bajo, etc.)</p>}
-        </div>
+    <div>
+      {alertas.length > 0 ? (
+        <section aria-label="Para revisar hoy" className="rounded-2xl overflow-hidden border border-line divide-y divide-line">
+          {alertas.map((al) => (
+            <p key={al.texto} className={'flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold ' +
+              (al.grave ? 'bg-red-soft text-red' : 'bg-yellow-soft text-yellow-ink')}>
+              <span aria-hidden="true" className={'w-2 h-2 rounded-full flex-shrink-0 ' + (al.grave ? 'bg-red' : 'bg-yellow')} />
+              {al.texto}
+            </p>
+          ))}
+        </section>
       ) : (
-        <p className="text-xs text-green-strong font-semibold pt-1 border-t border-line">Sin alertas activas.</p>
+        <p className="rounded-2xl bg-green-soft px-4 py-2.5 text-sm font-semibold text-green-strong">Sin alertas activas.</p>
       )}
-    </section>
+    </div>
   )
 }
+
+function AyerYMes({ hoy }) {
+  if (!hoy) return null
+  return (
+    <Franja titulo="Ayer y hacia dónde va el mes">
+        <Cifra label="Ayer · CUP" value={n(hoy.ayer.cup.neto)} tono="text-green-strong" />
+        <Cifra label="Ayer · USD" value={'$' + n(hoy.ayer.usd.neto)} tono="text-blue" />
+        <Cifra label="Mes proyectado · CUP" value={n(hoy.proyeccion.neto_cup_proyectado)} />
+        <Cifra label="Mes proyectado · USD" value={'$' + n(hoy.proyeccion.neto_usd_proyectado)} />
+    </Franja>
+  )
+}
+
+const VISTAS = [
+  { id: 'resumen', label: 'Resumen' },
+  { id: 'comparar', label: 'Comparar' }
+]
 
 export default function Resumen() {
   const [vista, setVista] = useState('resumen') // resumen | comparar
@@ -348,47 +394,35 @@ export default function Resumen() {
   const [r, setR] = useState(null)
   const [inv, setInv] = useState(null)
   const [error, setError] = useState('')
-  const [alerta, setAlerta] = useState(null)
+  const hoy = usePanelHoy()
 
   useEffect(() => {
     const { desde, hasta } = rango(periodo, mes, anio)
     Promise.all([
       supabase.rpc('panel_resumen', { p_desde: desde, p_hasta: hasta }),
-      supabase.rpc('inventario_resumen'),
-      supabase.rpc('descuadres_alerta')
-    ]).then(([res, invRes, alertaRes]) => {
+      supabase.rpc('inventario_resumen')
+    ]).then(([res, invRes]) => {
       if (res.error) setError('Tu usuario no ve la contabilidad completa.')
       else setR(res.data)
       setInv(invRes.data)
-      setAlerta(alertaRes.data)
     })
   }, [periodo, mes, anio])
 
-  const tabsVista = (
-    <div className="flex gap-1.5">
-      <button onClick={() => setVista('resumen')}
-        className={'flex-1 py-2 rounded-full text-xs font-semibold border ' + (vista === 'resumen' ? 'bg-green text-white border-green' : 'border-line text-muted')}>
-        Resumen
-      </button>
-      <button onClick={() => setVista('comparar')}
-        className={'flex-1 py-2 rounded-full text-xs font-semibold border ' + (vista === 'comparar' ? 'bg-green text-white border-green' : 'border-line text-muted')}>
-        Comparar
-      </button>
-    </div>
-  )
+  const tabsVista = <Segmentos opciones={VISTAS} valor={vista} onCambiar={setVista} />
 
   if (vista === 'comparar') {
     return (
       <div className="space-y-6 pb-4">
-        <PanelHoy />
+        <Alertas hoy={hoy} />
         {tabsVista}
+        <AyerYMes hoy={hoy} />
         <Comparar />
       </div>
     )
   }
 
-  if (error) return <div className="space-y-6 pb-4"><PanelHoy />{tabsVista}<p className="text-sm text-muted">{error}</p></div>
-  if (!r) return <div className="space-y-6 pb-4"><PanelHoy />{tabsVista}<p className="text-sm text-muted">Cargando…</p></div>
+  if (error) return <div className="space-y-6 pb-4"><Alertas hoy={hoy} />{tabsVista}<p className="text-sm text-muted">{error}</p></div>
+  if (!r) return <div className="space-y-6 pb-4"><Alertas hoy={hoy} />{tabsVista}<p className="text-sm text-muted">Cargando…</p></div>
 
   function compartir() {
     const url = 'https://wa.me/?text=' + encodeURIComponent(textoWhatsapp(periodo, r, mes, anio))
@@ -396,98 +430,71 @@ export default function Resumen() {
   }
 
   const anios = Array.from({ length: 5 }, (_, i) => String(hoyRef.getFullYear() - i))
+  const debe = (v) => (Number(v) > 0 ? 'text-red' : 'text-ink')
 
   return (
     <div className="space-y-6 pb-4">
-      <PanelHoy />
+      <Alertas hoy={hoy} />
       {tabsVista}
-      <div className="flex gap-1.5">
-        {PERIODOS.map((p) => (
-          <button key={p.id} onClick={() => setPeriodo(p.id)}
-            className={'flex-1 py-2 rounded-full text-xs font-semibold border ' +
-              (periodo === p.id ? 'bg-green text-white border-green' : 'border-line text-muted')}>
-            {p.label}
-          </button>
-        ))}
+
+      <div className="space-y-2">
+        <Segmentos opciones={PERIODOS} valor={periodo} onCambiar={setPeriodo} />
+        {periodo === 'mes' && (
+          <input type="month" value={mes} max={MES_ACTUAL} onChange={(e) => setMes(e.target.value)}
+            aria-label="Mes"
+            className="w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm outline-none focus:border-green" />
+        )}
+        {periodo === 'anio' && (
+          <select value={anio} onChange={(e) => setAnio(e.target.value)}
+            aria-label="Año"
+            className="w-full rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-green bg-surface">
+            {anios.map((a) => <option key={a} value={a}>{a}</option>)}
+          </select>
+        )}
       </div>
 
-      {periodo === 'mes' && (
-        <input type="month" value={mes} max={MES_ACTUAL} onChange={(e) => setMes(e.target.value)}
-          className="w-full rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-green" />
-      )}
-      {periodo === 'anio' && (
-        <select value={anio} onChange={(e) => setAnio(e.target.value)}
-          className="w-full rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-green bg-surface">
-          {anios.map((a) => <option key={a} value={a}>{a}</option>)}
-        </select>
-      )}
+      <div className="space-y-3">
 
-      <button onClick={compartir}
-        className="w-full rounded-xl border border-green text-green-strong font-semibold py-2.5 text-sm flex items-center justify-center gap-2">
-        Compartir resumen por WhatsApp
-      </button>
+        <Caja titulo="Neto en pesos" neto={n(r.cup.neto)} unidad="CUP" tono="text-green-strong">
+          <Fila label="Matrículas" sub={plural(Number(r.cup.matriculas_pagos), 'pago', 'pagos')} value={'+' + n(r.cup.matriculas)} />
+          <Fila label="Ganancia de la nevera" sub={`${n(r.cup.nevera_ventas)} vendido en ${plural(Number(r.cup.nevera_ventas_count), 'venta', 'ventas')}`} value={'+' + n(r.cup.nevera_ganancia)} />
+          <Fila label="Gastos" value={'−' + n(r.cup.gastos)} tono="text-red" />
+          <Fila label="En mercancía" sub="Compras para vender: no es pérdida, no se resta" value={n(r.cup.compras)} tono="text-muted" />
+        </Caja>
 
-      <Grupo titulo="Matrículas del gym · CUP" tono="text-green-strong">
-        <Tile label="Cobrado" value={n(r.cup.matriculas)} sub="CUP" />
-        <Tile label="Pagos" value={r.cup.matriculas_pagos} />
-      </Grupo>
+        <Caja titulo="Neto en dólares" neto={'$' + n(r.usd.neto)} unidad="USD" tono="text-blue">
+          <Fila label="Ganancia de la vitrina" sub={`$${n(r.usd.vitrina_ventas)} vendido en ${plural(Number(r.usd.vitrina_ventas_count), 'venta', 'ventas')} · costo $${n(r.usd.vitrina_costo)}`} value={'+$' + n(r.usd.vitrina_ganancia)} />
+          <Fila label="Gastos" value={'−$' + n(r.usd.gastos)} tono="text-red" />
+        </Caja>
 
-      <Grupo titulo="Nevera · CUP" tono="text-green-strong">
-        <Tile label="Ventas" value={r.cup.nevera_ventas_count} />
-        <Tile label="Vendido" value={n(r.cup.nevera_ventas)} />
-        <Tile label="Ganancia" value={n(r.cup.nevera_ganancia)} tono="text-green-strong" />
-      </Grupo>
+        <button onClick={compartir}
+          className="w-full min-h-[44px] rounded-full bg-green text-white font-semibold text-sm">
+          Compartir resumen por WhatsApp
+        </button>
+        {r.dia_cerrado_hoy && <p className="text-sm text-green-strong font-semibold">Hoy ya está cerrado.</p>}
+      </div>
 
-      <Grupo titulo="Resultado CUP" tono="text-green-strong">
-        <Tile label="Gastos" value={n(r.cup.gastos)} tono="text-red" />
-        <Tile label="Neto CUP" value={n(r.cup.neto)} tono="text-green-strong" />
-        <Tile label="En mercancía" value={n(r.cup.compras)} sub="no resta" />
-      </Grupo>
-      <p className="text-[11px] text-muted -mt-4">
-        "En mercancía" es plata que gastaste comprando para vender (inventario) — no es una pérdida, por eso no se resta del Neto.
-      </p>
+      <AyerYMes hoy={hoy} />
 
-      <Grupo titulo="Vitrina · USD" tono="text-blue">
-        <Tile label="Ventas" value={r.usd.vitrina_ventas_count} />
-        <Tile label="Vendido" value={'$' + n(r.usd.vitrina_ventas)} />
-        <Tile label="Ganancia" value={'$' + n(r.usd.vitrina_ganancia)} tono="text-blue" />
-      </Grupo>
-
-      <Grupo titulo="Resultado USD" tono="text-blue">
-        <Tile label="Costo" value={'$' + n(r.usd.vitrina_costo)} />
-        <Tile label="Gastos" value={'$' + n(r.usd.gastos)} tono="text-red" />
-        <Tile label="Neto USD" value={'$' + n(r.usd.neto)} tono="text-blue" />
-      </Grupo>
+      <section>
+        <h2 className="text-sm font-semibold">Pendientes por cobrar</h2>
+        <p className="text-sm text-muted mt-0.5 mb-2">Dinero que todavía no es tuyo: te lo deben. No está sumado en los netos.</p>
+        <div className="rounded-2xl border border-line bg-surface divide-y divide-line">
+          <Fila label="Fiados" value={r.fiados_pendientes} tono={debe(r.fiados_pendientes)} />
+          <Fila label="Comisiones" value={'$' + n(r.comisiones_pendientes)} tono={debe(r.comisiones_pendientes)} />
+          <Fila label="Mensajería" value={'$' + n(r.mensajeria_pendiente)} tono={debe(r.mensajeria_pendiente)} />
+          <Fila label="Socios" value={'$' + n(r.socios_pendientes)} tono={debe(r.socios_pendientes)} />
+        </div>
+      </section>
 
       {inv && (
-        <Grupo titulo="Inventario" tono="text-green-strong">
-          <Tile label="Productos" value={inv.productos} />
-          <Tile label="Artículos" value={n(inv.articulos)} />
-          <Tile label="Invertido" value={'$' + n(inv.invertido)} />
-          <Tile label="Valor" value={'$' + n(inv.valor)} tono="text-blue" sub="a precio de venta" />
-        </Grupo>
+        <Franja titulo="Inventario">
+          <Cifra label="Productos" value={inv.productos} />
+          <Cifra label="Artículos" value={n(inv.articulos)} />
+          <Cifra label="Invertido" value={'$' + n(inv.invertido)} />
+          <Cifra label="Valor a precio de venta" value={'$' + n(inv.valor)} tono="text-blue" />
+        </Franja>
       )}
-
-      <div className="border-t border-line pt-1">
-        <p className="text-[11px] text-muted mb-1">Lo de abajo es dinero que <b>todavía no es tuyo</b> — te lo deben. No está sumado en el Neto de arriba.</p>
-      </div>
-      <Grupo titulo="Pendientes por cobrar" tono="text-yellow">
-        <Tile label="Fiados" value={r.fiados_pendientes} tono={r.fiados_pendientes > 0 ? 'text-red' : 'text-ink'} />
-        <Tile label="Comisiones" value={'$' + n(r.comisiones_pendientes)} tono={Number(r.comisiones_pendientes) > 0 ? 'text-red' : 'text-ink'} />
-        <Tile label="Mensajería" value={'$' + n(r.mensajeria_pendiente)} tono={Number(r.mensajeria_pendiente) > 0 ? 'text-red' : 'text-ink'} />
-        <Tile label="Socios" value={'$' + n(r.socios_pendientes)} tono={Number(r.socios_pendientes) > 0 ? 'text-red' : 'text-ink'} />
-      </Grupo>
-
-      {alerta && (alerta.con_descuadre > 0 || alerta.sin_conteo > 0) && (
-        <div className="rounded-xl border border-red bg-red-soft px-4 py-2.5 text-sm text-red font-semibold">
-          {alerta.con_descuadre > 0 && <>⚠️ {alerta.con_descuadre} descuadre{alerta.con_descuadre === 1 ? '' : 's'} de caja en {alerta.dias} días</>}
-          {alerta.con_descuadre > 0 && alerta.sin_conteo > 0 && ' · '}
-          {alerta.sin_conteo > 0 && <>{alerta.sin_conteo} cierre{alerta.sin_conteo === 1 ? '' : 's'} sin contar</>}
-        </div>
-      )}
-
-      {r.dia_cerrado_hoy && <p className="text-sm text-green-strong font-semibold">Hoy ya está cerrado.</p>}
-      <p className="text-xs text-muted">CUP y USD nunca se mezclan.</p>
     </div>
   )
 }

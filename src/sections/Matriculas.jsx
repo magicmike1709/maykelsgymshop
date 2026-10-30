@@ -124,7 +124,7 @@ export default function Matriculas({ perfil }) {
             </button>
             {mensaje && (
               <div className="text-sm">
-                <p className={hayConflicto ? 'text-yellow' : 'text-muted'}>{mensaje}</p>
+                <p className={hayConflicto ? 'text-yellow-ink' : 'text-muted'}>{mensaje}</p>
                 {hayConflicto && (
                   <button type="button" onClick={(e) => guardarResumen(e, true)}
                     className="mt-2 text-xs font-semibold text-red border border-red rounded-full px-3 py-1.5">
@@ -244,7 +244,7 @@ function EditarCliente({ cliente, entrenadores, onCancelar, onGuardado }) {
       <div>
         <input value={telefono} onChange={(e) => setTelefono(e.target.value)} inputMode="numeric" placeholder="Teléfono (8 dígitos)"
           className="w-full rounded-xl border border-line px-3 py-2.5 text-base outline-none focus:border-green" />
-        {telAvisa && <p className="text-[11px] text-yellow mt-1">Un móvil cubano tiene 8 dígitos — así no le van a llegar los SMS.</p>}
+        {telAvisa && <p className="text-[11px] text-yellow-ink mt-1">Un móvil cubano tiene 8 dígitos — así no le van a llegar los SMS.</p>}
       </div>
       <div className="grid grid-cols-2 gap-2">
         <select value={sexo} onChange={(e) => setSexo(e.target.value)}
@@ -576,7 +576,7 @@ function ClientesGym({ perfil }) {
           {puedeEditar && duplicados.length > 0 && (
             <div className="rounded-xl border border-yellow bg-yellow-soft px-4 py-3">
               <button onClick={() => setVerDuplicados((v) => !v)} className="w-full text-left">
-                <span className="text-sm font-semibold text-yellow">
+                <span className="text-sm font-semibold text-yellow-ink">
                   {duplicados.length} fichas parecen repetidas
                 </span>
                 <span className="block text-xs text-muted mt-0.5">
@@ -846,7 +846,7 @@ function Recordar({ lista }) {
 
 const GRUPOS_VENC = [
   { id: 'vencido', titulo: 'Ya se les venció', tono: 'text-red', punto: 'bg-red' },
-  { id: 'vence_hoy', titulo: 'Se les vence hoy', tono: 'text-yellow', punto: 'bg-yellow' },
+  { id: 'vence_hoy', titulo: 'Se les vence hoy', tono: 'text-yellow-ink', punto: 'bg-yellow' },
   { id: 'por_vencer', titulo: 'Se les vence pronto', tono: 'text-green-strong', punto: 'bg-green' }
 ]
 
