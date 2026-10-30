@@ -168,7 +168,7 @@ export default function Gastos({ perfil }) {
               {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
             </select>
             {categoriaSeleccionada && !categoriaSeleccionada.en_ganancia && (
-              <p className="text-xs text-yellow">
+              <p className="text-xs text-yellow-ink">
                 Esta categoría no resta de la ganancia (ya se cuenta como costo de lo vendido) — se muestra aparte como compra de mercancía.
               </p>
             )}

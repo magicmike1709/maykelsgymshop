@@ -18,8 +18,8 @@ function estadoCliente(ultima, ciclo) {
   const dias = Math.floor((new Date(fechaLocal()) - new Date(ultima)) / 86400000)
   const restantes = ciclo - dias
   if (restantes < 0) return { texto: `Vencido hace ${-restantes} día${-restantes === 1 ? '' : 's'}`, tono: 'text-red' }
-  if (restantes === 0) return { texto: 'Se le vence hoy', tono: 'text-yellow' }
-  if (restantes <= 5) return { texto: `Le quedan ${restantes} día${restantes === 1 ? '' : 's'}`, tono: 'text-yellow' }
+  if (restantes === 0) return { texto: 'Se le vence hoy', tono: 'text-yellow-ink' }
+  if (restantes <= 5) return { texto: `Le quedan ${restantes} día${restantes === 1 ? '' : 's'}`, tono: 'text-yellow-ink' }
   return { texto: `Al día · ${restantes} días`, tono: 'text-green-strong' }
 }
 
@@ -257,7 +257,7 @@ function ClienteNuevo({ precio, entrenadores, onCreado, onError }) {
         <input value={telefono} onChange={(e) => setTelefono(e.target.value)} inputMode="numeric" placeholder="Teléfono (8 dígitos)"
           className="w-full rounded-xl border border-line px-4 py-3 text-base outline-none focus:border-green" />
         {telAvisa && (
-          <p className="text-xs text-yellow mt-1">Un móvil cubano tiene 8 dígitos — revisa que esté completo o no le van a llegar los avisos.</p>
+          <p className="text-xs text-yellow-ink mt-1">Un móvil cubano tiene 8 dígitos — revisa que esté completo o no le van a llegar los avisos.</p>
         )}
       </div>
       <div className="grid grid-cols-2 gap-2">
