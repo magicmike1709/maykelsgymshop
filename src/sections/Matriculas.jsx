@@ -324,7 +324,7 @@ function ImportarCSV({ onListo }) {
     if (!abierto) return
     supabase.rpc('config_lista').then(({ data }) => {
       const p = (data || []).find((c) => c.clave === 'precio_matricula')
-      setPrecio(p?.valor || '5000')
+      setPrecio(p?.valor || '')
     })
   }, [abierto])
 
@@ -350,19 +350,37 @@ function ImportarCSV({ onListo }) {
     setProgreso(0)
     let fallos = 0
     let ultimoError = ''
+    // Lo que de verdad pasó con cada fila: un CSV que ya se subió no
+    // suma nada, y eso tiene que decirse.
+    let nuevos = 0
+    let yaEstaban = 0
+    let cupNuevo = 0
+    let fichasNuevas = 0
+    const telefonoDeOtro = []
     for (let i = 0; i < filas.length; i++) {
       const f = filas[i]
-      const { error } = await supabase.rpc('cliente_visita_registrar', {
+      const { data, error } = await supabase.rpc('cliente_visita_registrar', {
         p_nombre: f.nombre, p_fecha: f.fecha, p_telefono: f.telefono, p_sexo: f.sexo, p_entrenador: f.entrenador, p_monto: montoDe(f)
       })
       if (error) { fallos++; ultimoError = error.message }
+      else if (data?.visita_nueva === false) yaEstaban++
+      else { nuevos++; cupNuevo += montoDe(f) || 0 }
+      if (data?.cliente_nuevo) fichasNuevas++
+      if (data?.telefono_de_otro) telefonoDeOtro.push(`${f.nombre} (el teléfono es de ${data.telefono_de_otro})`)
       setProgreso(i + 1)
     }
     setSubiendo(false)
     setLeido(null)
-    setResultado(fallos
-      ? `Se cargaron ${filas.length - fallos} de ${filas.length}. ${fallos} fallaron: ${ultimoError}`
-      : `Listo: ${filas.length} registros, $${totalCUP.toLocaleString('en-US')} CUP sumados a matrículas.`)
+    const partes = [
+      nuevos ? `${nuevos} pagos nuevos, $${cupNuevo.toLocaleString('en-US')} CUP sumados` : 'Ningún pago nuevo',
+      yaEstaban ? `${yaEstaban} ya estaban cargados (no se suman otra vez)` : null,
+      fichasNuevas ? `${fichasNuevas} clientes nuevos` : null,
+      fallos ? `${fallos} fallaron: ${ultimoError}` : null
+    ].filter(Boolean)
+    if (telefonoDeOtro.length) {
+      partes.push(`Con teléfono de otra persona, guardados en ficha aparte sin teléfono: ${telefonoDeOtro.join(', ')}`)
+    }
+    setResultado(partes.join('. ') + '.')
     onListo()
   }
 
@@ -409,7 +427,9 @@ function ImportarCSV({ onListo }) {
 // ya tienen monto (casos sociales, rebajas).
 function CompletarMontos({ refrescar, onListo }) {
   const [meses, setMeses] = useState([])
-  const [precio, setPrecio] = useState('5000')
+  // Vacío hasta leer el precio de la base: si alguien toca antes de que
+  // cargue, no se completa un mes entero con un precio viejo.
+  const [precio, setPrecio] = useState('')
   const [trabajando, setTrabajando] = useState(null)
   const [mensaje, setMensaje] = useState('')
 

@@ -29,7 +29,8 @@ export default function Cobrar({ perfil }) {
   const [buscando, setBuscando] = useState(false)
   const [abierto, setAbierto] = useState(null)
   const [entrenadores, setEntrenadores] = useState([])
-  const [precio, setPrecio] = useState('5000')
+  // Vacío hasta leer el precio de la base, para no cobrar con uno viejo.
+  const [precio, setPrecio] = useState('')
   const [ciclo, setCiclo] = useState(30)
   const [hoyPanel, setHoyPanel] = useState(null)
   const [mensaje, setMensaje] = useState('')
@@ -77,7 +78,7 @@ export default function Cobrar({ perfil }) {
         <div className="text-3xl font-bold tabular-nums text-green-strong">
           {hoyPanel ? n(hoyPanel.total) : '—'} <span className="text-sm font-normal text-muted">CUP</span>
         </div>
-        <div className="text-xs text-muted">{hoyPanel?.pagos ?? 0} pago{hoyPanel?.pagos === 1 ? '' : 's'} · matrícula {n(precio)} CUP</div>
+        <div className="text-xs text-muted">{hoyPanel?.pagos ?? 0} pago{hoyPanel?.pagos === 1 ? '' : 's'} · matrícula {precio === '' ? '…' : n(precio)} CUP</div>
       </div>
 
       {!puedeCobrar && (
@@ -159,7 +160,8 @@ function FilaCobro({ c, ciclo, precio, entrenadores, abierto, onAbrir, onCobrado
     setCobrando(true)
     const { data, error } = await supabase.rpc('cobrar_matricula', {
       p_cliente_id: c.id,
-      p_monto: Number(monto),
+      // Vacío = que la base ponga el precio configurado (no 0).
+      p_monto: String(monto).trim() === '' ? null : Number(monto),
       p_fecha: fecha,
       p_entrenador: entrenador || null
     })
@@ -234,6 +236,7 @@ function ClienteNuevo({ precio, entrenadores, onCreado, onError }) {
   async function guardar() {
     if (guardando) return
     if (!nombre.trim()) return onError('Ponle el nombre al cliente.')
+    if (String(monto).trim() === '') return onError('Escribe cuánto pagó (o espera a que cargue el precio).')
     setGuardando(true)
     const { error } = await supabase.rpc('cliente_visita_registrar', {
       p_nombre: nombre.trim(),
