@@ -71,10 +71,16 @@ export default function FormProducto({ modo, inicial, categorias, socios, onGuar
     <form onSubmit={guardar} className="space-y-2">
       <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre" className={campo} required autoFocus />
       <div className={`grid gap-2 ${editar ? 'grid-cols-2' : 'grid-cols-3'}`}>
-        <input value={precio} onChange={(e) => setPrecio(e.target.value)} type="number" inputMode="decimal" min="0" step="0.01" placeholder="Precio" className={campo} required />
-        <input value={costo} onChange={(e) => setCosto(e.target.value)} type="number" inputMode="decimal" min="0" step="0.01" placeholder="Costo" className={campo} required />
+        <label className="block text-[11px] text-muted">Precio venta
+          <input value={precio} onChange={(e) => setPrecio(e.target.value)} type="number" inputMode="decimal" min="0" step="0.01" placeholder="Precio" className={campo + ' mt-1'} required />
+        </label>
+        <label className="block text-[11px] text-muted">Costo
+          <input value={costo} onChange={(e) => setCosto(e.target.value)} type="number" inputMode="decimal" min="0" step="0.01" placeholder="Costo" className={campo + ' mt-1'} required />
+        </label>
         {!editar && (
-          <input value={stock} onChange={(e) => setStock(e.target.value)} type="number" inputMode="numeric" min="0" step="1" placeholder="Stock" className={campo} />
+          <label className="block text-[11px] text-muted">Stock inicial
+            <input value={stock} onChange={(e) => setStock(e.target.value)} type="number" inputMode="numeric" min="0" step="1" placeholder="Stock" className={campo + ' mt-1'} />
+          </label>
         )}
       </div>
       {editar && <p className="text-[11px] text-muted">Para cambiar el stock usa “Ajustar stock” o “Entró mercancía”, así queda registrado.</p>}

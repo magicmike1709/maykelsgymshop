@@ -112,9 +112,12 @@ export default function Inventario({ perfil }) {
 
   const porComprar = useMemo(
     () => activos.filter((p) => Number(p.stock) <= Number(p.stock_minimo) && Number(p.sugerido) > 0)
-      .sort((a, b) => Number(b.vendidos_30d) - Number(a.vendidos_30d)),
+      // Primero lo que más se vende, y entre iguales lo que menos queda
+      .sort((a, b) => Number(b.vendidos_30d) - Number(a.vendidos_30d) || Number(a.stock) - Number(b.stock) || a.nombre.localeCompare(b.nombre, 'es')),
     [activos]
   )
+  const LIMITE_COMPRAR = 15
+  const porComprarVisibles = porComprar.slice(0, LIMITE_COMPRAR)
 
   const productosFiltrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase()
@@ -232,7 +235,7 @@ export default function Inventario({ perfil }) {
   }
 
   function compartirListaCompras() {
-    const lineas = porComprar.map((p) =>
+    const lineas = porComprarVisibles.map((p) =>
       `• ${p.nombre}: comprar ${p.sugerido} (quedan ${p.stock})${p.ultimo_proveedor ? ' — ' + p.ultimo_proveedor : ''}`)
     const texto = `Lista de compras Maykelsgym Shop\n${lineas.join('\n')}`
     window.open('https://wa.me/?text=' + encodeURIComponent(texto), '_blank')
@@ -269,14 +272,14 @@ export default function Inventario({ perfil }) {
             <div>
               <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-red">Qué comprar</h2>
               <p className="text-xs text-muted mt-0.5">
-                {porComprar.length > 0 ? `${porComprar.length} productos bajo el mínimo` : 'Nada urgente por reponer'}
+                {porComprar.length > 0 ? `${porComprar.length} productos bajo el mínimo (los ${porComprarVisibles.length} más urgentes abajo)` : 'Nada urgente por reponer'}
               </p>
             </div>
             <span className="text-xs text-muted">{comprarAbierto ? '−' : '+'}</span>
           </button>
           {comprarAbierto && (
             <div className="mt-3 pt-3 border-t border-line space-y-2">
-              {porComprar.map((p) => (
+              {porComprarVisibles.map((p) => (
                 <div key={p.id} className="flex items-center gap-2.5">
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-semibold truncate">{p.nombre}</div>
@@ -288,6 +291,9 @@ export default function Inventario({ perfil }) {
                   <span className="text-xs font-bold tabular-nums text-red">comprar {p.sugerido}</span>
                 </div>
               ))}
+              {porComprar.length > LIMITE_COMPRAR && (
+                <p className="text-[11px] text-muted">…y {porComprar.length - LIMITE_COMPRAR} más. Usa el filtro “Agotados” o “Stock bajo” para verlos todos.</p>
+              )}
               {porComprar.length > 0 && (
                 <button onClick={compartirListaCompras} className="w-full rounded-xl border border-green-strong text-green-strong text-sm font-semibold py-2">
                   Compartir lista por WhatsApp
