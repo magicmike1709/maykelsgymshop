@@ -23,6 +23,8 @@
 --      - por teléfono solo si el nombre es de la misma persona;
 --      - si no, busca por nombre;
 --      - nunca cambia el nombre de una ficha existente;
+--      - volver a subir un pago no pisa su monto (antes un CSV sin
+--        monto les ponía el precio completo a las rebajas);
 --      - devuelve si el pago era nuevo o ya estaba, para que el
 --        importador diga la verdad en vez de "N registros sumados".
 --
@@ -195,9 +197,13 @@ begin
     where id = v_cliente_id;
   end if;
 
+  -- Si el pago ya estaba, solo se rellena el monto si estaba vacío:
+  -- volver a subir un CSV no tiene que pisar rebajas ni casos
+  -- sociales con el precio completo (cambiar un monto adrede se hace
+  -- desde Cobrar).
   insert into public.cliente_visitas (cliente_id, fecha, monto)
   values (v_cliente_id, p_fecha, p_monto)
-  on conflict (cliente_id, fecha) do update set monto = coalesce(excluded.monto, public.cliente_visitas.monto)
+  on conflict (cliente_id, fecha) do update set monto = coalesce(public.cliente_visitas.monto, excluded.monto)
   returning (xmax = 0) into v_visita_nueva;
 
   -- el dinero del día lo pone al día el trigger de cliente_visitas
