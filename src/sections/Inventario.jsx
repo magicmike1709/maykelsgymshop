@@ -1,34 +1,52 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../supabaseClient'
+import FormProducto from './inventario/FormProducto'
+import AjusteStock from './inventario/AjusteStock'
+import ImportarProductos from './inventario/ImportarProductos'
+import { dinero, msgError } from './inventario/util'
+
+const FILTROS = [
+  { id: 'todos', texto: 'Todos' },
+  { id: 'bajo', texto: 'Stock bajo' },
+  { id: 'agotado', texto: 'Agotados' },
+  { id: 'sinfoto', texto: 'Sin foto' }
+]
+const ORDENES = [
+  { id: 'nombre', texto: 'Nombre' },
+  { id: 'vendidos', texto: 'Más vendidos (30 días)' },
+  { id: 'parado', texto: 'Más dinero parado' },
+  { id: 'stock', texto: 'Menos stock primero' }
+]
+const MOTIVOS_AJUSTE = { conteo: 'Conteo', rotura: 'Rotura', perdida: 'Pérdida', regalo: 'Regalo', otro: 'Otro' }
 
 export default function Inventario({ perfil }) {
   const [resumen, setResumen] = useState(null)
   const [almacenes, setAlmacenes] = useState([])
-  const [productos, setProductos] = useState([])
+  const [productos, setProductos] = useState([]) // incluye quitados si eres admin
+  const [categorias, setCategorias] = useState([])
+  const [socios, setSocios] = useState([])
+  const [combos, setCombos] = useState([])
   const [busqueda, setBusqueda] = useState('')
-  const [abierto, setAbierto] = useState(null) // producto_id expandido
+  const [filtro, setFiltro] = useState('todos')
+  const [orden, setOrden] = useState('nombre')
+  const [abierto, setAbierto] = useState(null)
   const [stockPorAlmacen, setStockPorAlmacen] = useState({})
   const [entradasPorProducto, setEntradasPorProducto] = useState({})
   const [precioHistPorProducto, setPrecioHistPorProducto] = useState({})
+  const [ajustesPorProducto, setAjustesPorProducto] = useState({})
+  const [aviso, setAviso] = useState('')
 
-  const [nuevo, setNuevo] = useState(false)
-  const [nNombre, setNNombre] = useState('')
-  const [nPrecio, setNPrecio] = useState('')
-  const [nCosto, setNCosto] = useState('')
-  const [nStock, setNStock] = useState('')
-  const [nFoto, setNFoto] = useState('')
-  const [nGarantia, setNGarantia] = useState('')
-  const [nStockMinimo, setNStockMinimo] = useState('3')
-  const [nSocioId, setNSocioId] = useState('')
-  const [nPctGanancia, setNPctGanancia] = useState('')
-  const [nPctInversion, setNPctInversion] = useState('100')
-  const [socios, setSocios] = useState([])
+  // Formularios: { modo: 'nuevo' | 'editar' | 'duplicar', producto } y ajuste por producto
+  const [form, setForm] = useState(null)
+  const [ajustando, setAjustando] = useState(null)
+  const [confirmandoBaja, setConfirmandoBaja] = useState(null)
+  const [motivoBaja, setMotivoBaja] = useState('')
+  const [quitadosAbierto, setQuitadosAbierto] = useState(false)
 
-  const [combos, setCombos] = useState([])
   const [comboAbierto, setComboAbierto] = useState(false)
   const [cNombre, setCNombre] = useState('')
   const [cPrecio, setCPrecio] = useState('')
-  const [cLineas, setCLineas] = useState([]) // [{producto_id, cantidad}]
+  const [cLineas, setCLineas] = useState([])
   const [cBusqueda, setCBusqueda] = useState('')
 
   const [entradaAbierta, setEntradaAbierta] = useState(false)
@@ -42,8 +60,10 @@ export default function Inventario({ perfil }) {
 
   const [dormida, setDormida] = useState(null)
   const [dormidaAbierta, setDormidaAbierta] = useState(false)
+  const [comprarAbierto, setComprarAbierto] = useState(false)
 
-  const puedeEditar = perfil?.rol === 'admin' || perfil?.rol === 'operador_plus'
+  const esAdmin = perfil?.rol === 'admin'
+  const puedeEditar = esAdmin || perfil?.rol === 'operador_plus'
   const enlaceCatalogo = window.location.origin + '/catalogo'
 
   async function cargarDormida() {
@@ -54,41 +74,81 @@ export default function Inventario({ perfil }) {
   }
 
   async function cargar() {
-    const [inv, alm, prod, com, soc] = await Promise.all([
+    const [inv, alm, prod, com, soc, cat] = await Promise.all([
       supabase.rpc('inventario_resumen'),
       supabase.rpc('almacenes_lista'),
-      supabase.rpc('productos_lista'),
+      supabase.rpc('productos_inventario', { p_incluir_quitados: esAdmin }),
       supabase.rpc('combos_lista'),
-      supabase.rpc('socios_lista')
+      supabase.rpc('socios_lista'),
+      supabase.rpc('categorias_lista')
     ])
     setResumen(inv.data)
     setAlmacenes(alm.data || [])
     setProductos(prod.data || [])
     setCombos(com.data || [])
     setSocios(soc.data || [])
+    setCategorias(cat.data || [])
     if ((alm.data || []).length > 0 && !eAlmacenId) {
       const principal = alm.data.find((a) => a.es_principal) || alm.data[0]
       setEAlmacenId(principal.id)
     }
   }
 
+  function limpiarCaches() {
+    setStockPorAlmacen({}); setEntradasPorProducto({}); setPrecioHistPorProducto({}); setAjustesPorProducto({})
+    setDormida(null); setDormidaAbierta(false)
+  }
+
   useEffect(() => { cargar() }, [])
+
+  const activos = useMemo(() => productos.filter((p) => p.activo), [productos])
+  const quitados = useMemo(() => productos.filter((p) => !p.activo), [productos])
+
+  const contadores = useMemo(() => ({
+    bajo: activos.filter((p) => Number(p.stock) > 0 && Number(p.stock) <= Number(p.stock_minimo)).length,
+    agotado: activos.filter((p) => Number(p.stock) <= 0).length,
+    sinfoto: activos.filter((p) => !p.foto_url).length
+  }), [activos])
+
+  const porComprar = useMemo(
+    () => activos.filter((p) => Number(p.stock) <= Number(p.stock_minimo) && Number(p.sugerido) > 0)
+      .sort((a, b) => Number(b.vendidos_30d) - Number(a.vendidos_30d)),
+    [activos]
+  )
 
   const productosFiltrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase()
-    if (!q) return productos
-    return productos.filter((p) => p.nombre.toLowerCase().includes(q) || (p.codigo || '').toLowerCase().includes(q))
-  }, [productos, busqueda])
+    let lista = activos.filter((p) => {
+      if (q && !p.nombre.toLowerCase().includes(q) && !(p.codigo || '').toLowerCase().includes(q)) return false
+      if (filtro === 'bajo') return Number(p.stock) > 0 && Number(p.stock) <= Number(p.stock_minimo)
+      if (filtro === 'agotado') return Number(p.stock) <= 0
+      if (filtro === 'sinfoto') return !p.foto_url
+      return true
+    })
+    const por = {
+      nombre: (a, b) => a.nombre.localeCompare(b.nombre, 'es'),
+      vendidos: (a, b) => Number(b.vendidos_30d) - Number(a.vendidos_30d),
+      parado: (a, b) => Number(b.stock) * Number(b.costo) - Number(a.stock) * Number(a.costo),
+      stock: (a, b) => Number(a.stock) - Number(b.stock)
+    }[orden]
+    return [...lista].sort(por)
+  }, [activos, busqueda, filtro, orden])
 
   const productosParaEntrada = useMemo(() => {
     const q = eBusqueda.trim().toLowerCase()
-    if (!q) return productos.slice(0, 8)
-    return productos.filter((p) => p.nombre.toLowerCase().includes(q) || (p.codigo || '').toLowerCase().includes(q)).slice(0, 8)
-  }, [productos, eBusqueda])
+    const base = q ? activos.filter((p) => p.nombre.toLowerCase().includes(q) || (p.codigo || '').toLowerCase().includes(q)) : activos
+    return base.slice(0, 8)
+  }, [activos, eBusqueda])
+
+  const productosParaCombo = useMemo(() => {
+    const q = cBusqueda.trim().toLowerCase()
+    if (!q) return []
+    return activos.filter((p) => p.nombre.toLowerCase().includes(q)).slice(0, 6)
+  }, [activos, cBusqueda])
 
   async function toggleProducto(producto) {
-    if (abierto === producto.id) { setAbierto(null); return }
-    setAbierto(producto.id)
+    if (abierto === producto.id) { setAbierto(null); setAjustando(null); setConfirmandoBaja(null); return }
+    setAbierto(producto.id); setAjustando(null); setConfirmandoBaja(null)
     if (!stockPorAlmacen[producto.id]) {
       const { data } = await supabase.rpc('producto_stock_por_almacen', { p_producto_id: producto.id })
       setStockPorAlmacen((s) => ({ ...s, [producto.id]: data || [] }))
@@ -101,38 +161,45 @@ export default function Inventario({ perfil }) {
       const { data } = await supabase.rpc('producto_precio_historial', { p_producto_id: producto.id })
       setPrecioHistPorProducto((s) => ({ ...s, [producto.id]: data || [] }))
     }
-  }
-
-  async function guardarProducto(e) {
-    e.preventDefault()
-    if (!nNombre || !nPrecio || !nCosto) return
-    const { error } = await supabase.rpc('producto_guardar', {
-      p_id: null, p_nombre: nNombre, p_precio: Number(nPrecio), p_costo: Number(nCosto),
-      p_stock: Number(nStock || 0), p_foto_url: nFoto || null, p_dias_garantia: Number(nGarantia || 0),
-      p_stock_minimo: Number(nStockMinimo || 3),
-      p_socio_id: nSocioId || null,
-      p_pct_ganancia_socio: nSocioId ? Number(nPctGanancia || 0) / 100 : 0,
-      p_pct_inversion_socio: nSocioId ? Number(nPctInversion || 100) / 100 : 1
-    })
-    if (!error) {
-      setNNombre(''); setNPrecio(''); setNCosto(''); setNStock(''); setNFoto(''); setNGarantia('')
-      setNStockMinimo('3'); setNSocioId(''); setNPctGanancia(''); setNPctInversion('100'); setNuevo(false)
-      cargar()
+    if (!ajustesPorProducto[producto.id]) {
+      const { data } = await supabase.rpc('ajustes_lista', { p_producto_id: producto.id, p_limite: 10 })
+      setAjustesPorProducto((s) => ({ ...s, [producto.id]: data || [] }))
     }
   }
 
+  function avisar(texto) {
+    setAviso(texto)
+    setTimeout(() => setAviso(''), 6000)
+  }
+
+  async function productoGuardado(texto) {
+    setForm(null)
+    limpiarCaches()
+    await cargar()
+    avisar(texto)
+  }
+
+  async function quitarProducto(p) {
+    const { data, error } = await supabase.rpc('producto_baja', { p_id: p.id, p_motivo: motivoBaja || null })
+    if (error) return avisar('No se pudo quitar: ' + msgError(error))
+    setConfirmandoBaja(null); setMotivoBaja(''); setAbierto(null)
+    limpiarCaches()
+    await cargar()
+    const combosOff = data?.combos_desactivados || []
+    avisar(`“${p.nombre}” se quitó del inventario.` + (combosOff.length ? ` También se desactivaron los combos: ${combosOff.join(', ')}.` : ''))
+  }
+
+  async function reactivarProducto(p) {
+    const { error } = await supabase.rpc('producto_reactivar', { p_id: p.id })
+    if (error) return avisar('No se pudo reactivar: ' + msgError(error))
+    limpiarCaches()
+    await cargar()
+    avisar(`“${p.nombre}” volvió al inventario.`)
+  }
+
   function agregarLineaCombo(producto) {
-    setCLineas((l) => {
-      if (l.find((x) => x.producto_id === producto.id)) return l
-      return [...l, { producto_id: producto.id, nombre: producto.nombre, cantidad: 1 }]
-    })
+    setCLineas((l) => (l.find((x) => x.producto_id === producto.id) ? l : [...l, { producto_id: producto.id, nombre: producto.nombre, cantidad: 1 }]))
     setCBusqueda('')
-  }
-  function quitarLineaCombo(id) {
-    setCLineas((l) => l.filter((x) => x.producto_id !== id))
-  }
-  function cambiarCantidadCombo(id, cantidad) {
-    setCLineas((l) => l.map((x) => (x.producto_id === id ? { ...x, cantidad } : x)))
   }
 
   async function guardarCombo(e) {
@@ -148,12 +215,6 @@ export default function Inventario({ perfil }) {
     }
   }
 
-  const productosParaCombo = useMemo(() => {
-    const q = cBusqueda.trim().toLowerCase()
-    if (!q) return []
-    return productos.filter((p) => p.nombre.toLowerCase().includes(q)).slice(0, 6)
-  }, [productos, cBusqueda])
-
   async function registrarEntrada(e) {
     e.preventDefault()
     setEMensaje('')
@@ -163,17 +224,30 @@ export default function Inventario({ perfil }) {
       p_cantidad: Number(eCantidad), p_costo_unitario: Number(eCosto),
       p_proveedor: eProveedor || null
     })
-    if (error) return setEMensaje('No se pudo guardar: ' + error.message)
+    if (error) return setEMensaje('No se pudo guardar: ' + msgError(error))
     setEMensaje('Entrada guardada. Costo promedio ahora: $' + Number(data.costo_nuevo).toFixed(2))
     setECantidad(''); setECosto(''); setEProveedor(''); setEProductoId(''); setEBusqueda('')
-    setStockPorAlmacen({}); setEntradasPorProducto({})
+    limpiarCaches()
     cargar()
   }
 
-  const productoElegido = productos.find((p) => p.id === eProductoId)
+  function compartirListaCompras() {
+    const lineas = porComprar.map((p) =>
+      `• ${p.nombre}: comprar ${p.sugerido} (quedan ${p.stock})${p.ultimo_proveedor ? ' — ' + p.ultimo_proveedor : ''}`)
+    const texto = `Lista de compras Maykelsgym Shop\n${lineas.join('\n')}`
+    window.open('https://wa.me/?text=' + encodeURIComponent(texto), '_blank')
+  }
+
+  const productoElegido = activos.find((p) => p.id === eProductoId)
+  const clasePill = (activa) =>
+    `flex-shrink-0 rounded-full border px-3 py-1 text-xs font-semibold ${activa ? 'border-green-strong bg-green-soft text-green-strong' : 'border-line bg-surface text-muted'}`
 
   return (
     <div className="space-y-5 pb-4">
+      {aviso && (
+        <div className="rounded-xl border border-line bg-green-soft px-4 py-2.5 text-sm text-green-strong font-semibold">{aviso}</div>
+      )}
+
       {resumen && (
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
@@ -183,19 +257,50 @@ export default function Inventario({ perfil }) {
           </div>
           <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
             <div className="text-[11px] uppercase tracking-wide text-muted font-semibold mb-1">Invertido</div>
-            <div className="text-2xl font-bold tabular-nums text-blue">${Number(resumen.invertido).toLocaleString('en-US')}</div>
-            <div className="text-xs text-muted">valor: ${Number(resumen.valor).toLocaleString('en-US')}</div>
+            <div className="text-2xl font-bold tabular-nums text-blue">{dinero(resumen.invertido)}</div>
+            <div className="text-xs text-muted">valor: {dinero(resumen.valor)}</div>
           </div>
         </div>
       )}
 
+      {puedeEditar && (
+        <section className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
+          <button onClick={() => setComprarAbierto((v) => !v)} className="w-full flex items-center justify-between text-left">
+            <div>
+              <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-red">Qué comprar</h2>
+              <p className="text-xs text-muted mt-0.5">
+                {porComprar.length > 0 ? `${porComprar.length} productos bajo el mínimo` : 'Nada urgente por reponer'}
+              </p>
+            </div>
+            <span className="text-xs text-muted">{comprarAbierto ? '−' : '+'}</span>
+          </button>
+          {comprarAbierto && (
+            <div className="mt-3 pt-3 border-t border-line space-y-2">
+              {porComprar.map((p) => (
+                <div key={p.id} className="flex items-center gap-2.5">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-semibold truncate">{p.nombre}</div>
+                    <div className="text-[11px] text-muted">
+                      quedan {p.stock} · se vendieron {Number(p.vendidos_30d)} en 30 días
+                      {p.ultimo_proveedor ? ` · ${p.ultimo_proveedor}` : ''}
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold tabular-nums text-red">comprar {p.sugerido}</span>
+                </div>
+              ))}
+              {porComprar.length > 0 && (
+                <button onClick={compartirListaCompras} className="w-full rounded-xl border border-green-strong text-green-strong text-sm font-semibold py-2">
+                  Compartir lista por WhatsApp
+                </button>
+              )}
+            </div>
+          )}
+        </section>
+      )}
+
       <section className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-green-strong">Catálogo para WhatsApp</h2>
-            <p className="text-xs text-muted mt-0.5">Comparte este enlace — se ve sin necesidad de entrar a la app.</p>
-          </div>
-        </div>
+        <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-green-strong">Catálogo para WhatsApp</h2>
+        <p className="text-xs text-muted mt-0.5">Comparte este enlace — se ve sin necesidad de entrar a la app.</p>
         <div className="mt-2 rounded-lg bg-sunken px-3 py-2 text-xs font-mono break-all text-muted">{enlaceCatalogo}</div>
       </section>
 
@@ -244,7 +349,7 @@ export default function Inventario({ perfil }) {
                     className="w-full rounded-xl border border-line px-3 py-2.5 text-sm outline-none focus:border-blue" />
                   <div className="mt-1.5 max-h-48 overflow-y-auto rounded-xl border border-line divide-y divide-line">
                     {productosParaEntrada.map((p) => (
-                      <button type="button" key={p.id} onClick={() => setEProductoId(p.id)}
+                      <button type="button" key={p.id} onClick={() => { setEProductoId(p.id); if (Number(p.ultimo_costo)) setECosto(String(Number(p.ultimo_costo))); if (p.ultimo_proveedor) setEProveedor(p.ultimo_proveedor) }}
                         className="w-full text-left px-3 py-2 text-sm active:bg-blue-soft">
                         {p.nombre}
                       </button>
@@ -284,55 +389,20 @@ export default function Inventario({ perfil }) {
       )}
 
       {puedeEditar && (
-        <section className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
-          {!nuevo ? (
-            <button onClick={() => setNuevo(true)} className="text-sm font-semibold text-blue">+ Producto nuevo</button>
+        <section className="rounded-2xl border border-line bg-surface p-4 shadow-sm space-y-3">
+          {form?.modo === 'nuevo' || form?.modo === 'duplicar' ? (
+            <FormProducto
+              key={form.modo + (form.producto?.id || '')}
+              modo={form.modo} inicial={form.producto} categorias={categorias} socios={socios}
+              onCategoriaNueva={cargar}
+              onGuardado={() => productoGuardado('Producto guardado.')}
+              onCancelar={() => setForm(null)}
+            />
           ) : (
-            <form onSubmit={guardarProducto} className="space-y-2">
-              <input value={nNombre} onChange={(e) => setNNombre(e.target.value)} placeholder="Nombre"
-                className="w-full rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-blue" required />
-              <div className="grid grid-cols-3 gap-2">
-                <input value={nPrecio} onChange={(e) => setNPrecio(e.target.value)} type="number" min="0" placeholder="Precio"
-                  className="w-full rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-blue" required />
-                <input value={nCosto} onChange={(e) => setNCosto(e.target.value)} type="number" min="0" placeholder="Costo"
-                  className="w-full rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-blue" required />
-                <input value={nStock} onChange={(e) => setNStock(e.target.value)} type="number" min="0" placeholder="Stock inicial"
-                  className="w-full rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-blue" />
-              </div>
-              <input value={nFoto} onChange={(e) => setNFoto(e.target.value)} placeholder="Enlace de la foto (opcional)"
-                className="w-full rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-blue" />
-              <div className="grid grid-cols-2 gap-2">
-                <input value={nGarantia} onChange={(e) => setNGarantia(e.target.value)} type="number" min="0" placeholder="Días de garantía (opcional)"
-                  className="w-full rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-blue" />
-                <input value={nStockMinimo} onChange={(e) => setNStockMinimo(e.target.value)} type="number" min="0" placeholder="Stock mínimo"
-                  className="w-full rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-blue" />
-              </div>
-              <p className="text-xs text-muted">El stock inicial entra al almacén principal (Gym). Cuando el stock total llegue al mínimo, se crea un aviso solo.</p>
-
-              <select value={nSocioId} onChange={(e) => setNSocioId(e.target.value)}
-                className="w-full rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-blue bg-surface">
-                <option value="">Sin socio (100% tuyo)</option>
-                {socios.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-              </select>
-              {nSocioId && (
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-[11px] text-muted mb-1">% que invirtió el socio</label>
-                    <input value={nPctInversion} onChange={(e) => setNPctInversion(e.target.value)} type="number" min="0" max="100" placeholder="100"
-                      className="w-full rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-blue" />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] text-muted mb-1">% de ganancia del socio</label>
-                    <input value={nPctGanancia} onChange={(e) => setNPctGanancia(e.target.value)} type="number" min="0" max="100" placeholder="0"
-                      className="w-full rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-blue" />
-                  </div>
-                </div>
-              )}
-              <div className="flex gap-2">
-                <button type="submit" className="flex-1 rounded-xl bg-blue text-white font-semibold py-2.5 text-sm">Guardar</button>
-                <button type="button" onClick={() => setNuevo(false)} className="text-sm text-muted px-3">Cancelar</button>
-              </div>
-            </form>
+            <div className="flex items-center justify-between">
+              <button onClick={() => setForm({ modo: 'nuevo' })} className="text-sm font-semibold text-blue">+ Producto nuevo</button>
+              <ImportarProductos onListo={() => { limpiarCaches(); cargar() }} />
+            </div>
           )}
         </section>
       )}
@@ -357,32 +427,28 @@ export default function Inventario({ perfil }) {
             <form onSubmit={guardarCombo} className="space-y-2">
               <input value={cNombre} onChange={(e) => setCNombre(e.target.value)} placeholder="Nombre del combo"
                 className="w-full rounded-xl border border-line px-3 py-2.5 text-sm outline-none focus:border-blue" required />
-              <input value={cPrecio} onChange={(e) => setCPrecio(e.target.value)} type="number" min="0" placeholder="Precio del combo"
+              <input value={cPrecio} onChange={(e) => setCPrecio(e.target.value)} type="number" min="0" step="0.01" placeholder="Precio del combo"
                 className="w-full rounded-xl border border-line px-3 py-2.5 text-sm outline-none focus:border-blue" required />
-
               <div className="space-y-1">
                 {cLineas.map((l) => (
                   <div key={l.producto_id} className="flex items-center gap-2 text-sm">
                     <span className="flex-1">{l.nombre}</span>
-                    <input type="number" min="1" value={l.cantidad} onChange={(e) => cambiarCantidadCombo(l.producto_id, e.target.value)}
+                    <input type="number" min="1" value={l.cantidad}
+                      onChange={(e) => setCLineas((ls) => ls.map((x) => (x.producto_id === l.producto_id ? { ...x, cantidad: e.target.value } : x)))}
                       className="w-14 rounded-lg border border-line px-2 py-1 text-sm text-center" />
-                    <button type="button" onClick={() => quitarLineaCombo(l.producto_id)} className="text-xs text-red">quitar</button>
+                    <button type="button" onClick={() => setCLineas((ls) => ls.filter((x) => x.producto_id !== l.producto_id))} className="text-xs text-red">quitar</button>
                   </div>
                 ))}
               </div>
-
               <input value={cBusqueda} onChange={(e) => setCBusqueda(e.target.value)} placeholder="Buscar producto para agregar…"
                 className="w-full rounded-xl border border-line px-3 py-2.5 text-sm outline-none focus:border-blue" />
               {productosParaCombo.length > 0 && (
                 <div className="rounded-xl border border-line divide-y divide-line max-h-40 overflow-y-auto">
                   {productosParaCombo.map((p) => (
-                    <button type="button" key={p.id} onClick={() => agregarLineaCombo(p)} className="w-full text-left px-3 py-2 text-sm active:bg-blue-soft">
-                      {p.nombre}
-                    </button>
+                    <button type="button" key={p.id} onClick={() => agregarLineaCombo(p)} className="w-full text-left px-3 py-2 text-sm active:bg-blue-soft">{p.nombre}</button>
                   ))}
                 </div>
               )}
-
               <div className="flex gap-2">
                 <button type="submit" className="flex-1 rounded-xl bg-blue text-white text-sm font-semibold py-2.5">Guardar combo</button>
                 <button type="button" onClick={() => { setComboAbierto(false); setCLineas([]); setCNombre(''); setCPrecio('') }} className="text-sm text-muted px-3">Cancelar</button>
@@ -395,77 +461,192 @@ export default function Inventario({ perfil }) {
       <section>
         <div className="flex items-center justify-between mb-2">
           <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-green-strong">Productos</h2>
-          <span className="text-xs text-muted">{productosFiltrados.length}</span>
+          <span className="text-xs text-muted">{productosFiltrados.length} de {activos.length}</span>
         </div>
         <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar por nombre o código…"
           className="w-full mb-2 rounded-xl border border-line px-4 py-2.5 text-sm outline-none focus:border-green" />
-        <div className="space-y-2">
-          {productosFiltrados.map((p) => (
-            <div key={p.id} className="rounded-xl border border-line bg-surface overflow-hidden">
-              <button onClick={() => toggleProducto(p)} className="w-full flex items-center gap-3 px-3 py-3 text-left">
-                {p.foto_url
-                  ? <img src={p.foto_url} alt="" className="w-11 h-11 rounded-lg object-cover border border-line flex-shrink-0" />
-                  : <div className="w-11 h-11 rounded-lg bg-sunken flex-shrink-0" />}
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold truncate">{p.nombre}</div>
-                  <div className="text-xs text-muted tabular-nums">${Number(p.precio).toLocaleString('en-US')} · costo ${Number(p.costo).toFixed(2)}</div>
-                </div>
-                <span className="text-sm font-bold tabular-nums">{p.stock}</span>
-              </button>
-              {abierto === p.id && (
-                <div className="px-3 pb-3 pt-1 border-t border-line space-y-3">
-                  {stockPorAlmacen[p.id] && (
-                    <div className="flex gap-4">
-                      {stockPorAlmacen[p.id].map((s) => (
-                        <span key={s.almacen_id} className="text-xs text-muted">{s.almacen_nombre}: <b className="text-ink">{s.cantidad}</b></span>
-                      ))}
-                    </div>
-                  )}
-                  <div>
-                    <p className="text-[11px] uppercase tracking-wide text-muted font-semibold mb-1">Entradas de este producto</p>
-                    {entradasPorProducto[p.id]?.length > 0 ? (
-                      <div className="space-y-1">
-                        {entradasPorProducto[p.id].map((e) => (
-                          <div key={e.id} className="text-xs flex justify-between text-muted">
-                            <span>{e.fecha} · {e.almacen_nombre}{e.proveedor ? ' · ' + e.proveedor : ''}</span>
-                            <span className="tabular-nums">+{e.cantidad} a ${Number(e.costo_unitario).toFixed(2)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted">Sin entradas registradas todavía.</p>
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-[11px] uppercase tracking-wide text-muted font-semibold mb-1">Historial de precios</p>
-                    {precioHistPorProducto[p.id]?.length > 0 ? (
-                      <div className="space-y-1">
-                        {precioHistPorProducto[p.id].map((h) => (
-                          <div key={h.id} className="text-xs flex justify-between text-muted">
-                            <span>{new Date(h.creado_en).toLocaleDateString('es-CU')}</span>
-                            <span className="tabular-nums">
-                              {h.precio_anterior === null ? (
-                                <>precio inicial ${Number(h.precio_nuevo).toFixed(2)}</>
-                              ) : (
-                                <>${Number(h.precio_anterior).toFixed(2)} → ${Number(h.precio_nuevo).toFixed(2)}
-                                  {Number(h.costo_anterior) !== Number(h.costo_nuevo) && ` · costo $${Number(h.costo_anterior).toFixed(2)} → $${Number(h.costo_nuevo).toFixed(2)}`}
-                                </>
-                              )}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted">Sin cambios de precio registrados.</p>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
+        <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
+          {FILTROS.map((f) => (
+            <button key={f.id} onClick={() => setFiltro(f.id)} className={clasePill(filtro === f.id)}>
+              {f.texto}{f.id !== 'todos' && contadores[f.id] > 0 ? ` (${contadores[f.id]})` : ''}
+            </button>
           ))}
+        </div>
+        <select value={orden} onChange={(e) => setOrden(e.target.value)}
+          className="w-full mb-2 rounded-xl border border-line px-3 py-2 text-xs outline-none focus:border-green bg-surface text-muted">
+          {ORDENES.map((o) => <option key={o.id} value={o.id}>Ordenar: {o.texto}</option>)}
+        </select>
+
+        <div className="space-y-2">
+          {productosFiltrados.map((p) => {
+            const agotado = Number(p.stock) <= 0
+            const bajo = !agotado && Number(p.stock) <= Number(p.stock_minimo)
+            return (
+              <div key={p.id} className="rounded-xl border border-line bg-surface overflow-hidden">
+                <button onClick={() => toggleProducto(p)} className="w-full flex items-center gap-3 px-3 py-3 text-left">
+                  {p.foto_url
+                    ? <img src={p.foto_url} alt="" className="w-11 h-11 rounded-lg object-cover border border-line flex-shrink-0" />
+                    : <div className="w-11 h-11 rounded-lg bg-sunken flex-shrink-0" />}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold truncate">{p.nombre}</div>
+                    <div className="text-xs text-muted tabular-nums">${Number(p.precio).toLocaleString('en-US')} · costo ${Number(p.costo).toFixed(2)}</div>
+                  </div>
+                  <span className="text-right">
+                    <span className={`block text-sm font-bold tabular-nums ${agotado ? 'text-red' : bajo ? 'text-yellow-ink' : ''}`}>{p.stock}</span>
+                    {(agotado || bajo) && <span className={`block text-[10px] font-semibold ${agotado ? 'text-red' : 'text-yellow-ink'}`}>{agotado ? 'agotado' : 'bajo'}</span>}
+                  </span>
+                </button>
+                {abierto === p.id && (
+                  <div className="px-3 pb-3 pt-2 border-t border-line space-y-3">
+                    {form?.modo === 'editar' && form.producto.id === p.id ? (
+                      <FormProducto
+                        modo="editar" inicial={p} categorias={categorias} socios={socios}
+                        onCategoriaNueva={cargar}
+                        onGuardado={() => productoGuardado('Cambios guardados.')}
+                        onCancelar={() => setForm(null)}
+                      />
+                    ) : (
+                      <>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
+                          {p.categoria && <span>{p.categoria}</span>}
+                          {p.codigo && <span className="font-mono">{p.codigo}</span>}
+                          <span>Vendidos 30 días: <b className="text-ink">{Number(p.vendidos_30d)}</b></span>
+                          <span>Última venta: <b className="text-ink">{p.ultima_venta || '—'}</b></span>
+                          <span>Mínimo: <b className="text-ink">{p.stock_minimo}</b></span>
+                        </div>
+                        {stockPorAlmacen[p.id] && (
+                          <div className="flex gap-4">
+                            {stockPorAlmacen[p.id].map((s) => (
+                              <span key={s.almacen_id} className="text-xs text-muted">{s.almacen_nombre}: <b className="text-ink">{s.cantidad}</b></span>
+                            ))}
+                          </div>
+                        )}
+
+                        {puedeEditar && ajustando !== p.id && confirmandoBaja !== p.id && (
+                          <div className="flex flex-wrap gap-2">
+                            <button onClick={() => setForm({ modo: 'editar', producto: p })} className="rounded-lg border border-line px-3 py-1.5 text-xs font-semibold text-blue">Editar</button>
+                            <button onClick={() => setAjustando(p.id)} className="rounded-lg border border-line px-3 py-1.5 text-xs font-semibold text-blue">Ajustar stock</button>
+                            <button onClick={() => { setForm({ modo: 'duplicar', producto: p }); window.scrollTo({ top: 0, behavior: 'smooth' }) }} className="rounded-lg border border-line px-3 py-1.5 text-xs font-semibold text-blue">Duplicar</button>
+                            {esAdmin && (
+                              <button onClick={() => setConfirmandoBaja(p.id)} className="rounded-lg border border-red px-3 py-1.5 text-xs font-semibold text-red">Quitar</button>
+                            )}
+                          </div>
+                        )}
+
+                        {ajustando === p.id && (
+                          <AjusteStock
+                            producto={p} almacenes={almacenes} stockAlmacenes={stockPorAlmacen[p.id]}
+                            onCancelar={() => setAjustando(null)}
+                            onListo={async () => { setAjustando(null); limpiarCaches(); await cargar(); avisar('Ajuste guardado.') }}
+                          />
+                        )}
+
+                        {confirmandoBaja === p.id && (
+                          <div className="rounded-xl bg-red-soft p-3 space-y-2">
+                            <p className="text-sm font-semibold text-red">¿Quitar “{p.nombre}” del inventario?</p>
+                            <p className="text-xs text-muted">
+                              Deja de aparecer en la lista, la vitrina y el catálogo. Las ventas pasadas se conservan y lo puedes reactivar cuando quieras.
+                              {Number(p.stock) > 0 && <> Ojo: tiene <b>{p.stock}</b> en stock (≈ {dinero(Number(p.stock) * Number(p.costo))} invertidos). Si ya no existen, ajústalo a 0 antes para que quede registrado.</>}
+                            </p>
+                            <input value={motivoBaja} onChange={(e) => setMotivoBaja(e.target.value)} placeholder="Motivo (opcional)"
+                              className="w-full rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-red bg-surface" />
+                            <div className="flex gap-2">
+                              <button onClick={() => quitarProducto(p)} className="flex-1 rounded-xl bg-red text-white text-sm font-semibold py-2">Sí, quitar</button>
+                              <button onClick={() => { setConfirmandoBaja(null); setMotivoBaja('') }} className="text-sm text-muted px-3">Cancelar</button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wide text-muted font-semibold mb-1">Entradas de este producto</p>
+                      {entradasPorProducto[p.id]?.length > 0 ? (
+                        <div className="space-y-1">
+                          {entradasPorProducto[p.id].map((e) => (
+                            <div key={e.id} className="text-xs flex justify-between text-muted">
+                              <span>{e.fecha} · {e.almacen_nombre}{e.proveedor ? ' · ' + e.proveedor : ''}</span>
+                              <span className="tabular-nums">+{e.cantidad} a ${Number(e.costo_unitario).toFixed(2)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted">Sin entradas registradas todavía.</p>
+                      )}
+                    </div>
+                    {ajustesPorProducto[p.id]?.length > 0 && (
+                      <div>
+                        <p className="text-[11px] uppercase tracking-wide text-muted font-semibold mb-1">Ajustes de stock</p>
+                        <div className="space-y-1">
+                          {ajustesPorProducto[p.id].map((a) => (
+                            <div key={a.id} className="text-xs flex justify-between text-muted gap-2">
+                              <span className="min-w-0 truncate">
+                                {new Date(a.creado_en).toLocaleDateString('es-CU')} · {MOTIVOS_AJUSTE[a.motivo]}{a.usuario_nombre ? ' · ' + a.usuario_nombre : ''}{a.nota ? ' · ' + a.nota : ''}
+                              </span>
+                              <span className={`tabular-nums flex-shrink-0 ${Number(a.diferencia) < 0 ? 'text-red' : ''}`}>
+                                {Number(a.diferencia) > 0 ? '+' : ''}{Number(a.diferencia)} ({dinero(a.valor, 2)})
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wide text-muted font-semibold mb-1">Historial de precios</p>
+                      {precioHistPorProducto[p.id]?.length > 0 ? (
+                        <div className="space-y-1">
+                          {precioHistPorProducto[p.id].map((h) => (
+                            <div key={h.id} className="text-xs flex justify-between text-muted">
+                              <span>{new Date(h.creado_en).toLocaleDateString('es-CU')}</span>
+                              <span className="tabular-nums">
+                                {h.precio_anterior === null ? (
+                                  <>precio inicial ${Number(h.precio_nuevo).toFixed(2)}</>
+                                ) : (
+                                  <>${Number(h.precio_anterior).toFixed(2)} → ${Number(h.precio_nuevo).toFixed(2)}
+                                    {Number(h.costo_anterior) !== Number(h.costo_nuevo) && ` · costo $${Number(h.costo_anterior).toFixed(2)} → $${Number(h.costo_nuevo).toFixed(2)}`}
+                                  </>
+                                )}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted">Sin cambios de precio registrados.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
           {productosFiltrados.length === 0 && <p className="text-sm text-muted">Sin resultados.</p>}
         </div>
       </section>
+
+      {esAdmin && quitados.length > 0 && (
+        <section className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
+          <button onClick={() => setQuitadosAbierto((v) => !v)} className="w-full flex items-center justify-between text-left">
+            <div>
+              <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">Productos quitados</h2>
+              <p className="text-xs text-muted mt-0.5">{quitados.length} fuera del inventario — se pueden reactivar</p>
+            </div>
+            <span className="text-xs text-muted">{quitadosAbierto ? '−' : '+'}</span>
+          </button>
+          {quitadosAbierto && (
+            <div className="mt-3 pt-3 border-t border-line space-y-2">
+              {quitados.map((p) => (
+                <div key={p.id} className="flex items-center gap-2.5">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-semibold truncate">{p.nombre}</div>
+                    <div className="text-[11px] text-muted">{Number(p.stock) > 0 ? `${p.stock} en stock guardado` : 'sin stock'}</div>
+                  </div>
+                  <button onClick={() => reactivarProducto(p)} className="rounded-lg border border-line px-3 py-1.5 text-xs font-semibold text-blue">Reactivar</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
     </div>
   )
 }
