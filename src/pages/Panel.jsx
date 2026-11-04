@@ -101,7 +101,15 @@ export default function Panel() {
 
       <main className="px-5 pt-5 pb-10 max-w-md mx-auto">
         {!perfil && <Cargando />}
-        {perfil && (
+        {perfil && perfil.activo === false && (
+          <div className="rounded-2xl border border-line bg-surface p-5 space-y-2">
+            <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-yellow-ink">Cuenta pendiente de activación</h2>
+            <p className="text-sm text-muted">
+              Tu cuenta ya existe, pero todavía no tiene acceso al panel. Pídele al administrador que la active y vuelve a entrar.
+            </p>
+          </div>
+        )}
+        {perfil && perfil.activo !== false && (
           <Suspense fallback={<Cargando />}>
             {tab === 'resumen' && <Resumen />}
             {tab === 'cobrar' && <Cobrar perfil={perfil} />}

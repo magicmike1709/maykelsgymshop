@@ -6,3 +6,30 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+# Cabeceras de seguridad para todo el sitio.
+# La CSP solo permite lo que la app usa de verdad: sus propios archivos,
+# la API y las fotos de Supabase, las fotos antiguas del catálogo y Google Fonts.
+# Si algún día se añade otro servicio externo (analítica, otro CDN de imágenes…),
+# hay que incluir su dominio aquí o el navegador lo bloqueará.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; style-src-attr 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://dzyupwadmryxywanydqf.supabase.co https://img2.elyerromenu.com; connect-src 'self' https://dzyupwadmryxywanydqf.supabase.co; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+
+# El service worker y el manifiesto no deben quedarse en caché del navegador,
+# para que las actualizaciones (y los arreglos de seguridad) lleguen enseguida.
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/registerSW.js"
+  [headers.values]
+    Cache-Control = "no-cache"
