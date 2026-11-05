@@ -6,6 +6,8 @@ const NOMBRES = {
   matriculas: 'Matrícula',
   gastos: 'Gasto',
   entradas_inventario: 'Entrada de mercancía',
+  ajustes_inventario: 'Ajuste de stock',
+  productos: 'Producto',
   cierres: 'Cierre'
 }
 
@@ -15,6 +17,8 @@ function resumenDato(tabla, datos) {
   if (tabla === 'matriculas') return `${Number(datos.monto || 0).toLocaleString('es-CU')} CUP`
   if (tabla === 'gastos') return `${datos.concepto} · ${Number(datos.importe || 0).toLocaleString()} ${datos.moneda}`
   if (tabla === 'entradas_inventario') return `+${datos.cantidad} a $${Number(datos.costo_unitario || 0).toFixed(2)}`
+  if (tabla === 'ajustes_inventario') return `${datos.nombre}: ${datos.antes} → ${datos.despues} (${datos.motivo})`
+  if (tabla === 'productos') return `${datos.nombre}${datos.motivo ? ' · ' + datos.motivo : ''}`
   if (tabla === 'cierres') return datos.dia
   return ''
 }
@@ -32,7 +36,7 @@ export default function Actividad() {
       {lista.map((a) => (
         <div key={a.id} className="rounded-xl border border-line bg-surface px-4 py-2.5">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold">{NOMBRES[a.tabla] || a.tabla}</span>
+            <span className="text-sm font-semibold">{a.tabla === 'productos' ? (a.accion === 'BAJA' ? 'Producto quitado' : 'Producto reactivado') : NOMBRES[a.tabla] || a.tabla}</span>
             <span className="text-[11px] text-muted">{new Date(a.creado_en).toLocaleString('es-CU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
           </div>
           <div className="text-xs text-muted tabular-nums">{resumenDato(a.tabla, a.datos)}</div>
