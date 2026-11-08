@@ -7,7 +7,7 @@ Panel de control del negocio de Maykel's Gym (La Habana): matrículas, nevera, v
 ## Stack
 - React 18 + Vite 5 + Tailwind 3, PWA (`vite-plugin-pwa`). Sin TypeScript, sin lint, sin tests automáticos.
 - Backend: Supabase, proyecto `maykelsgymshop-nuevo` (id `dzyupwadmryxywanydqf`, us-east-1).
-- Despliegue: Netlify (principal, cabeceras de seguridad en `netlify.toml`) y vista previa en Vercel (`vercel.json`).
+- Despliegue: **Vercel** (proyecto `maykelsgymshop`, producción en `maykelsgymshop.vercel.app`, se despliega solo al fusionar a `main`; cada rama genera una vista previa). Las cabeceras de seguridad (CSP, etc.) viven en `vercel.json`. `netlify.toml` es un resto de cuando se usaba Netlify: si se cambia la CSP, mantener ambos archivos iguales.
 - Variables: `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` (ver `.env.example`; la clave es la publicable, nunca poner claves secretas en el repo).
 
 ## Comandos
@@ -45,7 +45,7 @@ Se prueban con Playwright (ya instalado en el entorno), simulando las llamadas a
 ## Flujo de trabajo
 - Rama de trabajo asignada por sesión; no hacer push a otra. Si el PR anterior ya se fusionó, partir del `main` actualizado.
 - No crear PR salvo que se pida.
-- `main` incluye ya: inventario del día a día (0037), endurecimiento de seguridad (0038); las 0039 (descripción de productos) y 0040 (cuenta con proveedores) están en la rama de trabajo.
+- `main` incluye ya: inventario del día a día (0037), endurecimiento de seguridad (0038), descripción de productos (0039) y cuenta con proveedores (0040).
 
 ## Pendientes conocidos
 - Ventas de los últimos 30 días figuran en 0: “Qué comprar” y “Más vendidos” no ordenan bien. Confirmar cómo se registran las ventas.
