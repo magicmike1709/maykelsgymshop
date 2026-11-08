@@ -1,15 +1,12 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
-import { fechaLocal as hoy } from '../lib/fecha'
+import { fechaLocal as hoy, fechaDiaMes, fechaDiaMesAnio } from '../lib/fecha'
+import { n } from '../lib/formato'
 
 function mesLabel(mes) {
   const [y, m] = mes.split('-').map(Number)
   const nombres = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
   return `${nombres[m - 1]} ${y}`
-}
-
-function n(v) {
-  return Number(v || 0).toLocaleString('es-CU')
 }
 
 function agruparPorEntrenador(lista) {
@@ -146,12 +143,6 @@ export default function Matriculas({ perfil }) {
   )
 }
 
-function fechaLarga(f) {
-  if (!f) return null
-  const [y, m, d] = f.split('-')
-  return `${Number(d)}/${Number(m)}/${y}`
-}
-
 function FilaCliente({ c, abierto, onAbrir, detalle, puedeEditar, entrenadores, onGuardado }) {
   const [editando, setEditando] = useState(false)
   const fechaPago = c.fecha || c.ultima_visita
@@ -171,7 +162,7 @@ function FilaCliente({ c, abierto, onAbrir, detalle, puedeEditar, entrenadores, 
         {fechaPago && (
           <div className="shrink-0 text-right">
             <div className="text-[11px] font-semibold bg-green-soft text-green-strong rounded-full px-2.5 py-1 whitespace-nowrap">
-              {fechaLarga(fechaPago)}
+              {fechaDiaMesAnio(fechaPago)}
             </div>
           </div>
         )}
@@ -189,7 +180,7 @@ function FilaCliente({ c, abierto, onAbrir, detalle, puedeEditar, entrenadores, 
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs mb-2">
                 <span className="text-muted">Ha pagado <b className="text-ink tabular-nums">{n(detalle.total_pagado)} CUP</b></span>
                 <span className="text-muted">{detalle.veces} vez{detalle.veces === 1 ? '' : 'es'}</span>
-                {detalle.primera_visita && <span className="text-muted">desde {fechaLarga(detalle.primera_visita)}</span>}
+                {detalle.primera_visita && <span className="text-muted">desde {fechaDiaMesAnio(detalle.primera_visita)}</span>}
               </div>
               <p className="text-xs font-semibold text-muted mb-1">Pagos:</p>
               <div className="flex flex-wrap gap-1.5">
@@ -725,12 +716,6 @@ function telefonoWa(telefono) {
   return digitos.startsWith('53') ? digitos : '53' + digitos
 }
 
-function fechaCorta(f) {
-  if (!f) return 'sin fecha'
-  const [, m, d] = f.split('-')
-  return `${Number(d)}/${Number(m)}`
-}
-
 const RANGOS_DIA = [
   { id: '1-5', label: '1-5', desde: 1, hasta: 5 },
   { id: '6-10', label: '6-10', desde: 6, hasta: 10 },
@@ -828,7 +813,7 @@ function Recordar({ lista }) {
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-semibold">{c.nombre}</div>
                       <div className="text-xs text-muted">
-                        Pagó el {fechaCorta(c.fecha_pago)} · {c.telefono || 'sin teléfono'}{c.entrenador ? ` · ${c.entrenador}` : ''}
+                        Pagó el {fechaDiaMes(c.fecha_pago)} · {c.telefono || 'sin teléfono'}{c.entrenador ? ` · ${c.entrenador}` : ''}
                       </div>
                     </div>
                     {wa ? (
@@ -1011,7 +996,7 @@ function ListaDuplicados({ lista, onUnido }) {
                 <div key={f.id} className="flex items-center justify-between gap-2 text-[11px]">
                   <span className="min-w-0 flex-1 truncate text-muted">
                     {f.telefono || 'sin teléfono'} · {f.visitas} pago{f.visitas === 1 ? '' : 's'}
-                    {f.ultima ? ` · hasta ${fechaLarga(f.ultima)}` : ''}
+                    {f.ultima ? ` · hasta ${fechaDiaMesAnio(f.ultima)}` : ''}
                   </span>
                   {i === 0 ? (
                     <span className="shrink-0 font-semibold text-green-strong">se queda esta</span>

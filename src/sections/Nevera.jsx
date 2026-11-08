@@ -1,35 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
-import { fechaLocal as fmtDate } from '../lib/fecha'
-
-function n(v) {
-  return Number(v || 0).toLocaleString('es-CU')
-}
-function ultimoDiaMes(anio, mes0) {
-  return new Date(anio, mes0 + 1, 0).getDate()
-}
-function rango(periodo, mes, anio) {
-  const hoy = new Date()
-  const hastaHoy = fmtDate(hoy)
-  if (periodo === 'hoy') return { desde: hastaHoy, hasta: hastaHoy }
-  if (periodo === 'semana') {
-    const hace7 = new Date(hoy)
-    hace7.setDate(hace7.getDate() - 6)
-    return { desde: fmtDate(hace7), hasta: hastaHoy }
-  }
-  if (periodo === 'anio') {
-    const esAnioActual = Number(anio) === hoy.getFullYear()
-    return { desde: `${anio}-01-01`, hasta: esAnioActual ? hastaHoy : `${anio}-12-31` }
-  }
-  // mes: viene como "YYYY-MM"
-  const [y, m] = mes.split('-').map(Number)
-  const esMesActual = y === hoy.getFullYear() && m - 1 === hoy.getMonth()
-  return { desde: `${mes}-01`, hasta: esMesActual ? hastaHoy : `${mes}-${String(ultimoDiaMes(y, m - 1)).padStart(2, '0')}` }
-}
-
-const hoyRefNevera = new Date()
-const MES_ACTUAL_NEVERA = `${hoyRefNevera.getFullYear()}-${String(hoyRefNevera.getMonth() + 1).padStart(2, '0')}`
-const ANIO_ACTUAL_NEVERA = String(hoyRefNevera.getFullYear())
+import { MES_ACTUAL, ANIO_ACTUAL, rangoPeriodo } from '../lib/fecha'
+import { n } from '../lib/formato'
 
 export default function Nevera({ perfil }) {
   const [productos, setProductos] = useState([])
@@ -45,8 +17,8 @@ export default function Nevera({ perfil }) {
   const [fCosto, setFCosto] = useState('')
 
   const [periodoHist, setPeriodoHist] = useState('mes')
-  const [mesHist, setMesHist] = useState(MES_ACTUAL_NEVERA)
-  const [anioHist, setAnioHist] = useState(ANIO_ACTUAL_NEVERA)
+  const [mesHist, setMesHist] = useState(MES_ACTUAL)
+  const [anioHist, setAnioHist] = useState(ANIO_ACTUAL)
   const [dias, setDias] = useState([])
   const [topProductos, setTopProductos] = useState([])
 
@@ -66,7 +38,7 @@ export default function Nevera({ perfil }) {
 
   useEffect(() => {
     if (modo !== 'historial') return
-    const { desde, hasta } = rango(periodoHist, mesHist, anioHist)
+    const { desde, hasta } = rangoPeriodo(periodoHist, mesHist, anioHist)
     supabase.rpc('refrigerios_historial_dias', { p_desde: desde, p_hasta: hasta }).then(({ data }) => setDias(data || []))
     supabase.rpc('refrigerios_top_productos', { p_desde: desde, p_hasta: hasta }).then(({ data }) => setTopProductos(data || []))
   }, [modo, periodoHist, mesHist, anioHist])
@@ -175,13 +147,13 @@ export default function Nevera({ perfil }) {
           </div>
 
           {periodoHist === 'mes' && (
-            <input type="month" value={mesHist} max={MES_ACTUAL_NEVERA} onChange={(e) => setMesHist(e.target.value)}
+            <input type="month" value={mesHist} max={MES_ACTUAL} onChange={(e) => setMesHist(e.target.value)}
               className="w-full rounded-xl border border-line px-4 py-2 text-sm outline-none focus:border-green" />
           )}
           {periodoHist === 'anio' && (
             <select value={anioHist} onChange={(e) => setAnioHist(e.target.value)}
               className="w-full rounded-xl border border-line px-4 py-2 text-sm outline-none focus:border-green bg-surface">
-              {Array.from({ length: 5 }, (_, i) => String(hoyRefNevera.getFullYear() - i)).map((a) => <option key={a} value={a}>{a}</option>)}
+              {Array.from({ length: 5 }, (_, i) => String(new Date().getFullYear() - i)).map((a) => <option key={a} value={a}>{a}</option>)}
             </select>
           )}
 

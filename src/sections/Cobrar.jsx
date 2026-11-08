@@ -1,16 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
-import { fechaLocal } from '../lib/fecha'
-
-function n(v) {
-  return Number(v || 0).toLocaleString('es-CU')
-}
-
-function fechaCorta(f) {
-  if (!f) return null
-  const [y, m, d] = f.split('-')
-  return `${Number(d)}/${Number(m)}/${y}`
-}
+import { fechaLocal, fechaDiaMesAnio } from '../lib/fecha'
+import { n } from '../lib/formato'
 
 // Días desde el último pago → en qué estado está el cliente.
 function estadoCliente(ultima, ciclo) {
@@ -182,7 +173,7 @@ function FilaCobro({ c, ciclo, precio, entrenadores, abierto, onAbrir, onCobrado
         </div>
         <div className="shrink-0 text-right">
           <div className={'text-[11px] font-semibold ' + estado.tono}>{estado.texto}</div>
-          {c.ultima_visita && <div className="text-[11px] text-muted">último: {fechaCorta(c.ultima_visita)}</div>}
+          {c.ultima_visita && <div className="text-[11px] text-muted">último: {fechaDiaMesAnio(c.ultima_visita)}</div>}
         </div>
       </button>
 

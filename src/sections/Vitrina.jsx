@@ -1,44 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../supabaseClient'
-import { fechaLocal as fmtDate } from '../lib/fecha'
-
-function n(v) {
-  return Number(v || 0).toLocaleString('en-US')
-}
-function ultimoDiaMes(anio, mes0) {
-  return new Date(anio, mes0 + 1, 0).getDate()
-}
-function rango(periodo, mes, anio) {
-  const hoy = new Date()
-  const hastaHoy = fmtDate(hoy)
-  if (periodo === 'hoy') return { desde: hastaHoy, hasta: hastaHoy }
-  if (periodo === 'semana') {
-    const hace7 = new Date(hoy)
-    hace7.setDate(hace7.getDate() - 6)
-    return { desde: fmtDate(hace7), hasta: hastaHoy }
-  }
-  if (periodo === 'anio') {
-    const esAnioActual = Number(anio) === hoy.getFullYear()
-    return { desde: `${anio}-01-01`, hasta: esAnioActual ? hastaHoy : `${anio}-12-31` }
-  }
-  const [y, m] = mes.split('-').map(Number)
-  const esMesActual = y === hoy.getFullYear() && m - 1 === hoy.getMonth()
-  return { desde: `${mes}-01`, hasta: esMesActual ? hastaHoy : `${mes}-${String(ultimoDiaMes(y, m - 1)).padStart(2, '0')}` }
-}
-
-const hoyRefVitrina = new Date()
-const MES_ACTUAL_VITRINA = `${hoyRefVitrina.getFullYear()}-${String(hoyRefVitrina.getMonth() + 1).padStart(2, '0')}`
-const ANIO_ACTUAL_VITRINA = String(hoyRefVitrina.getFullYear())
+import { MES_ACTUAL, ANIO_ACTUAL, rangoPeriodo } from '../lib/fecha'
+import { usd } from '../lib/formato'
 
 function Historial() {
   const [periodoHist, setPeriodoHist] = useState('mes')
-  const [mesHist, setMesHist] = useState(MES_ACTUAL_VITRINA)
-  const [anioHist, setAnioHist] = useState(ANIO_ACTUAL_VITRINA)
+  const [mesHist, setMesHist] = useState(MES_ACTUAL)
+  const [anioHist, setAnioHist] = useState(ANIO_ACTUAL)
   const [dias, setDias] = useState([])
   const [topProductos, setTopProductos] = useState([])
 
   useEffect(() => {
-    const { desde, hasta } = rango(periodoHist, mesHist, anioHist)
+    const { desde, hasta } = rangoPeriodo(periodoHist, mesHist, anioHist)
     supabase.rpc('vitrina_historial_dias', { p_desde: desde, p_hasta: hasta }).then(({ data }) => setDias(data || []))
     supabase.rpc('vitrina_top_productos', { p_desde: desde, p_hasta: hasta }).then(({ data }) => setTopProductos(data || []))
   }, [periodoHist, mesHist, anioHist])
@@ -55,13 +28,13 @@ function Historial() {
       </div>
 
       {periodoHist === 'mes' && (
-        <input type="month" value={mesHist} max={MES_ACTUAL_VITRINA} onChange={(e) => setMesHist(e.target.value)}
+        <input type="month" value={mesHist} max={MES_ACTUAL} onChange={(e) => setMesHist(e.target.value)}
           className="w-full rounded-xl border border-line px-4 py-2 text-sm outline-none focus:border-blue" />
       )}
       {periodoHist === 'anio' && (
         <select value={anioHist} onChange={(e) => setAnioHist(e.target.value)}
           className="w-full rounded-xl border border-line px-4 py-2 text-sm outline-none focus:border-blue bg-surface">
-          {Array.from({ length: 5 }, (_, i) => String(hoyRefVitrina.getFullYear() - i)).map((a) => <option key={a} value={a}>{a}</option>)}
+          {Array.from({ length: 5 }, (_, i) => String(new Date().getFullYear() - i)).map((a) => <option key={a} value={a}>{a}</option>)}
         </select>
       )}
 
@@ -72,7 +45,7 @@ function Historial() {
           {dias.map((d) => (
             <div key={d.fecha} className="flex items-center justify-between rounded-xl border border-line bg-surface px-3 py-2 text-sm">
               <span className="font-semibold">{d.fecha}</span>
-              <span className="tabular-nums text-muted">${n(d.total)} <span className="text-blue font-semibold">· +${n(d.ganancia)}</span></span>
+              <span className="tabular-nums text-muted">${usd(d.total)} <span className="text-blue font-semibold">· +${usd(d.ganancia)}</span></span>
             </div>
           ))}
         </div>
@@ -85,7 +58,7 @@ function Historial() {
           {topProductos.map((t) => (
             <div key={t.nombre} className="flex items-center justify-between rounded-xl border border-line bg-surface px-3 py-2 text-sm">
               <span className="font-semibold">{t.nombre}</span>
-              <span className="tabular-nums text-muted">×{n(t.cantidad)} · ${n(t.importe)}</span>
+              <span className="tabular-nums text-muted">×{usd(t.cantidad)} · ${usd(t.importe)}</span>
             </div>
           ))}
         </div>

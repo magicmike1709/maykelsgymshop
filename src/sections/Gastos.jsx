@@ -1,9 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../supabaseClient'
-
-function n(v) {
-  return Number(v || 0).toLocaleString('es-CU')
-}
+import { n } from '../lib/formato'
 
 export default function Gastos({ perfil }) {
   const [lista, setLista] = useState([])

@@ -1,14 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
-import { fechaLocal as fmtDate } from '../lib/fecha'
-
-function n(v) {
-  return Number(v || 0).toLocaleString('es-CU')
-}
-
-function ultimoDiaMes(anio, mes0) {
-  return new Date(anio, mes0 + 1, 0).getDate()
-}
+import { fechaLocal as fmtDate, ultimoDiaMes, MES_ACTUAL, ANIO_ACTUAL } from '../lib/fecha'
+import { n } from '../lib/formato'
 
 function rango(periodo, mes, anio) {
   const hoy = new Date()
@@ -128,9 +121,6 @@ function Caja({ titulo, neto, unidad, tono, children }) {
   )
 }
 
-const hoyRef = new Date()
-const MES_ACTUAL = `${hoyRef.getFullYear()}-${String(hoyRef.getMonth() + 1).padStart(2, '0')}`
-const ANIO_ACTUAL = String(hoyRef.getFullYear())
 
 function variacion(actualStr, anteriorStr) {
   const actual = Number(actualStr || 0)
@@ -429,7 +419,7 @@ export default function Resumen() {
     window.open(url, '_blank')
   }
 
-  const anios = Array.from({ length: 5 }, (_, i) => String(hoyRef.getFullYear() - i))
+  const anios = Array.from({ length: 5 }, (_, i) => String(new Date().getFullYear() - i))
   const debe = (v) => (Number(v) > 0 ? 'text-red' : 'text-ink')
 
   return (

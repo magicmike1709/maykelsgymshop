@@ -17,7 +17,8 @@ Panel de control del negocio de Maykel's Gym (La Habana): matrículas, nevera, v
 ## Estructura
 - `src/App.jsx`, `src/pages/` (Panel, Login, Catalogo, NuevaContrasena)
 - `src/sections/` – una pantalla por archivo (Resumen, Inventario, Vitrina, Cobrar, Matriculas, Nevera, Gastos, Fondos, Cierre, Equipo, Actividad, Avisos). `Inventario` tiene su carpeta `src/sections/inventario/`.
-- `src/lib/`, `src/supabaseClient.js`
+- `src/lib/` – `fecha.js` (fechas en hora de Cuba, rangos de historial), `formato.js` (`n` CUP, `usd`, `precio`), `negocio.js` (WhatsApp del negocio para el catálogo). No volver a copiar estas funciones dentro de las pantallas.
+- `src/supabaseClient.js`
 - `supabase/migrations/` – migraciones SQL numeradas (`0001_…` en adelante)
 
 ## Reglas de datos y seguridad (importante)
@@ -50,5 +51,6 @@ Se prueban con Playwright (ya instalado en el entorno), simulando las llamadas a
 ## Pendientes conocidos
 - Ventas de los últimos 30 días figuran en 0: “Qué comprar” y “Más vendidos” no ordenan bien. Confirmar cómo se registran las ventas.
 - Datos reales (8-nov-2026): 110 productos, 61 unidades de VitoBeast en stock, 77 productos sin foto. Las ventas de VitoBeast se registran descontando stock y los pagos al proveedor se anotan en Proveedores.
-- Ideas sin empezar: catálogo público con WhatsApp, ocultar productos por producto, precios por volumen y promociones, código de barras, ficha de cliente.
+- Catálogo público (`/catalogo`, sin login): buscador, categorías, pedido de varios productos por WhatsApp (número en `src/lib/negocio.js`). Solo muestra productos con stock > 0 (`catalogo_publico`).
+- Ideas sin empezar: ocultar productos por producto, precios por volumen y promociones, código de barras, ficha de cliente.
 - Acciones del dueño en Supabase: desactivar “Allow new users to sign up”, activar protección de contraseñas filtradas, 2FA en la cuenta admin.
