@@ -41,6 +41,7 @@ export default function Catalogo() {
                   <div className="px-3 py-2.5">
                     <div className="text-sm font-semibold leading-tight">{p.nombre}</div>
                     <div className="text-sm font-bold tabular-nums text-green-strong mt-0.5">${Number(p.precio).toLocaleString('en-US')}</div>
+                    {p.descripcion && <p className="text-xs text-muted mt-1 line-clamp-3 whitespace-pre-line">{p.descripcion}</p>}
                   </div>
                 </div>
               ))}

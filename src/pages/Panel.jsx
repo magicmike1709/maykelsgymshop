@@ -15,6 +15,7 @@ const Cierre = lazy(() => import('../sections/Cierre'))
 const Avisos = lazy(() => import('../sections/Avisos'))
 const Actividad = lazy(() => import('../sections/Actividad'))
 const Fondos = lazy(() => import('../sections/Fondos'))
+const Proveedores = lazy(() => import('../sections/Proveedores'))
 
 function Cargando() {
   return <p className="text-sm text-muted">Cargando…</p>
@@ -32,6 +33,7 @@ const TABS_BASE = [
 ]
 
 const TABS_ADMIN = [
+  { id: 'proveedores', label: 'Proveedores' },
   { id: 'equipo', label: 'Equipo' },
   { id: 'cierre', label: 'Cierre' },
   { id: 'fondos', label: 'Fondos del equipo' },
@@ -44,7 +46,7 @@ const GRUPOS_MENU = [
   { titulo: 'Negocio', ids: ['resumen'] },
   { titulo: 'Clientes', ids: ['cobrar', 'matriculas', 'avisos'] },
   { titulo: 'Ventas', ids: ['nevera', 'vitrina', 'inventario'] },
-  { titulo: 'Finanzas', ids: ['gastos'] },
+  { titulo: 'Finanzas', ids: ['gastos', 'proveedores'] },
   { titulo: 'Administración', ids: ['equipo', 'cierre', 'fondos', 'actividad'] }
 ]
 
@@ -119,6 +121,7 @@ export default function Panel() {
             {tab === 'inventario' && <Inventario perfil={perfil} />}
             {tab === 'gastos' && <Gastos perfil={perfil} />}
             {tab === 'avisos' && <Avisos perfil={perfil} />}
+            {tab === 'proveedores' && perfil.rol === 'admin' && <Proveedores />}
             {tab === 'equipo' && perfil.rol === 'admin' && <Equipo />}
             {tab === 'cierre' && perfil.rol === 'admin' && <Cierre />}
             {tab === 'fondos' && perfil.rol === 'admin' && <Fondos />}
