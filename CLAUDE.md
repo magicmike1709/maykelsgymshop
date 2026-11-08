@@ -29,9 +29,10 @@ Panel de control del negocio de Maykel's Gym (La Habana): matrículas, nevera, v
 - Quien se registra solo queda **inactivo**; `usuario_crear` (Equipo) crea cuentas activas. Las listas exigen usuario activo.
 - Fotos: bucket `productos`, solo JPG/PNG/WebP de hasta 2 MB.
 - Los precios aceptan centavos.
+- Cuenta con proveedores (solo admin, pantalla Proveedores): lo que se debe = entradas de inventario con nombre de proveedor (cantidad × costo) − pagos en `proveedor_pagos`. El proveedor de VitOBest se llama `VitoBeast`; la mercancía se carga con “Entró mercancía”.
 
 ## Migraciones
-1. Crear `supabase/migrations/NNNN_descripcion.sql` con el siguiente número libre (la última es `0039_descripcion_productos.sql`).
+1. Crear `supabase/migrations/NNNN_descripcion.sql` con el siguiente número libre (la última es `0040_cuenta_proveedores.sql`).
 2. Aplicarla al proyecto real con `apply_migration` (MCP de Supabase) y guardar el mismo archivo en el repo.
 3. Antes: comprobaciones previas sobre los datos existentes. Después: simular cada rol dentro de la base y comprobar que lo no permitido falla.
 4. Revisar `get_advisors` (seguridad) tras cambiar el esquema.
@@ -44,10 +45,10 @@ Se prueban con Playwright (ya instalado en el entorno), simulando las llamadas a
 ## Flujo de trabajo
 - Rama de trabajo asignada por sesión; no hacer push a otra. Si el PR anterior ya se fusionó, partir del `main` actualizado.
 - No crear PR salvo que se pida.
-- `main` incluye ya: inventario del día a día (0037), endurecimiento de seguridad (0038); la 0039 (descripción de productos) está en la rama de trabajo.
+- `main` incluye ya: inventario del día a día (0037), endurecimiento de seguridad (0038); las 0039 (descripción de productos) y 0040 (cuenta con proveedores) están en la rama de trabajo.
 
 ## Pendientes conocidos
 - Ventas de los últimos 30 días figuran en 0: “Qué comprar” y “Más vendidos” no ordenan bien. Confirmar cómo se registran las ventas.
-- Datos reales: 103 productos, 57 agotados, 29 con stock bajo, 82 sin foto.
+- Datos reales (8-nov-2026): 110 productos, 61 unidades de VitoBeast en stock, 77 productos sin foto. Las ventas de VitoBeast se registran descontando stock y los pagos al proveedor se anotan en Proveedores.
 - Ideas sin empezar: catálogo público con WhatsApp, ocultar productos por producto, precios por volumen y promociones, código de barras, ficha de cliente.
 - Acciones del dueño en Supabase: desactivar “Allow new users to sign up”, activar protección de contraseñas filtradas, 2FA en la cuenta admin.
