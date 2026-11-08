@@ -31,7 +31,7 @@ Panel de control del negocio de Maykel's Gym (La Habana): matrículas, nevera, v
 - Los precios aceptan centavos.
 
 ## Migraciones
-1. Crear `supabase/migrations/NNNN_descripcion.sql` con el siguiente número libre (la última es `0038_endurecer_seguridad.sql`).
+1. Crear `supabase/migrations/NNNN_descripcion.sql` con el siguiente número libre (la última es `0039_descripcion_productos.sql`).
 2. Aplicarla al proyecto real con `apply_migration` (MCP de Supabase) y guardar el mismo archivo en el repo.
 3. Antes: comprobaciones previas sobre los datos existentes. Después: simular cada rol dentro de la base y comprobar que lo no permitido falla.
 4. Revisar `get_advisors` (seguridad) tras cambiar el esquema.
@@ -44,7 +44,7 @@ Se prueban con Playwright (ya instalado en el entorno), simulando las llamadas a
 ## Flujo de trabajo
 - Rama de trabajo asignada por sesión; no hacer push a otra. Si el PR anterior ya se fusionó, partir del `main` actualizado.
 - No crear PR salvo que se pida.
-- `main` incluye ya: inventario del día a día (0037) y endurecimiento de seguridad (0038).
+- `main` incluye ya: inventario del día a día (0037), endurecimiento de seguridad (0038); la 0039 (descripción de productos) está en la rama de trabajo.
 
 ## Pendientes conocidos
 - Ventas de los últimos 30 días figuran en 0: “Qué comprar” y “Más vendidos” no ordenan bien. Confirmar cómo se registran las ventas.

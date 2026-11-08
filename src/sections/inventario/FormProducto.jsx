@@ -13,6 +13,7 @@ export default function FormProducto({ modo, inicial, categorias, socios, onGuar
   const [costo, setCosto] = useState(inicial ? String(inicial.costo) : '')
   const [stock, setStock] = useState('')
   const [foto, setFoto] = useState(inicial?.foto_url || '')
+  const [descripcion, setDescripcion] = useState(inicial?.descripcion || '')
   const [garantia, setGarantia] = useState(inicial?.dias_garantia ? String(inicial.dias_garantia) : '')
   const [stockMinimo, setStockMinimo] = useState(inicial ? String(inicial.stock_minimo) : '3')
   const [categoriaId, setCategoriaId] = useState(inicial?.categoria_id || '')
@@ -50,7 +51,7 @@ export default function FormProducto({ modo, inicial, categorias, socios, onGuar
       catId = data.id
       onCategoriaNueva?.()
     }
-    const { error: errGuardar } = await supabase.rpc('producto_guardar', {
+    const { data: guardado, error: errGuardar } = await supabase.rpc('producto_guardar', {
       p_id: editar ? inicial.id : null,
       p_nombre: nombre, p_precio: Number(precio || 0), p_costo: Number(costo || 0),
       p_stock: editar ? 0 : Number(stock || 0),
@@ -62,8 +63,15 @@ export default function FormProducto({ modo, inicial, categorias, socios, onGuar
       p_pct_ganancia_socio: socioId ? Number(pctGanancia || 0) / 100 : 0,
       p_pct_inversion_socio: socioId ? Number(pctInversion || 100) / 100 : 1
     })
+    if (errGuardar) { setGuardando(false); return setError(msgError(errGuardar)) }
+    const idProducto = editar ? inicial.id : guardado?.id
+    if (idProducto && (descripcion.trim() || (inicial?.descripcion || ''))) {
+      const { error: errDesc } = await supabase.rpc('producto_descripcion_guardar', {
+        p_id: idProducto, p_descripcion: descripcion
+      })
+      if (errDesc) { setGuardando(false); return setError('El producto se guardó, pero no la descripción: ' + msgError(errDesc)) }
+    }
     setGuardando(false)
-    if (errGuardar) return setError(msgError(errGuardar))
     onGuardado()
   }
 
@@ -104,6 +112,9 @@ export default function FormProducto({ modo, inicial, categorias, socios, onGuar
             </div>
           </div>
           <input value={foto} onChange={(e) => setFoto(e.target.value)} placeholder="…o pega el enlace de una foto" className={campo} />
+
+          <textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} rows={3} maxLength={2000}
+            placeholder="Descripción (qué es, formato, cómo se usa)" className={campo} />
 
           <select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)} className={campo + ' bg-surface'}>
             <option value="">Sin categoría</option>
