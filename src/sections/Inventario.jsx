@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient'
 import FormProducto from './inventario/FormProducto'
 import AjusteStock from './inventario/AjusteStock'
 import ImportarProductos from './inventario/ImportarProductos'
+import MensajeGrupo from './inventario/MensajeGrupo'
 import { dinero, msgError } from './inventario/util'
 
 const FILTROS = [
@@ -61,6 +62,7 @@ export default function Inventario({ perfil }) {
   const [dormida, setDormida] = useState(null)
   const [dormidaAbierta, setDormidaAbierta] = useState(false)
   const [comprarAbierto, setComprarAbierto] = useState(false)
+  const [grupoAbierto, setGrupoAbierto] = useState(false)
 
   const esAdmin = perfil?.rol === 'admin'
   const puedeEditar = esAdmin || perfil?.rol === 'operador_plus'
@@ -308,6 +310,11 @@ export default function Inventario({ perfil }) {
         <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-green-strong">Catálogo para WhatsApp</h2>
         <p className="text-xs text-muted mt-0.5">Comparte este enlace — se ve sin necesidad de entrar a la app.</p>
         <div className="mt-2 rounded-lg bg-sunken px-3 py-2 text-xs font-mono break-all text-muted">{enlaceCatalogo}</div>
+        <button onClick={() => setGrupoAbierto((v) => !v)} aria-expanded={grupoAbierto}
+          className="mt-3 w-full rounded-xl bg-green text-white text-sm font-semibold py-2.5 active:opacity-80">
+          {grupoAbierto ? 'Cerrar mensaje para el grupo' : 'Mensaje para el grupo'}
+        </button>
+        {grupoAbierto && <MensajeGrupo productos={activos} enlace={enlaceCatalogo} />}
       </section>
 
       <section className="rounded-2xl border border-line bg-surface p-4 shadow-sm">

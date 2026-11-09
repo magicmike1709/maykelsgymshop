@@ -33,7 +33,7 @@ Panel de control del negocio de Maykel's Gym (La Habana): matrículas, nevera, v
 - Cuenta con proveedores (solo admin, pantalla Proveedores): lo que se debe = entradas de inventario con nombre de proveedor (cantidad × costo) − pagos en `proveedor_pagos`. El proveedor de VitOBest se llama `VitoBeast`; la mercancía se carga con “Entró mercancía”.
 
 ## Migraciones
-1. Crear `supabase/migrations/NNNN_descripcion.sql` con el siguiente número libre (la última es `0040_cuenta_proveedores.sql`).
+1. Crear `supabase/migrations/NNNN_descripcion.sql` con el siguiente número libre (la última es `0041_inventario_ultima_entrada.sql`).
 2. Aplicarla al proyecto real con `apply_migration` (MCP de Supabase) y guardar el mismo archivo en el repo.
 3. Antes: comprobaciones previas sobre los datos existentes. Después: simular cada rol dentro de la base y comprobar que lo no permitido falla.
 4. Revisar `get_advisors` (seguridad) tras cambiar el esquema.
@@ -52,5 +52,6 @@ Se prueban con Playwright (ya instalado en el entorno), simulando las llamadas a
 - Ventas de los últimos 30 días figuran en 0: “Qué comprar” y “Más vendidos” no ordenan bien. Confirmar cómo se registran las ventas.
 - Datos reales (8-nov-2026): 110 productos, 61 unidades de VitoBeast en stock, 77 productos sin foto. Las ventas de VitoBeast se registran descontando stock y los pagos al proveedor se anotan en Proveedores.
 - Catálogo público (`/catalogo`, sin login): buscador, categorías, pedido de varios productos por WhatsApp (número en `src/lib/negocio.js`). Solo muestra productos con stock > 0 (`catalogo_publico`).
+- Inventario → “Mensaje para el grupo”: arma el texto para el grupo de WhatsApp (novedades = mercancía llegada en los últimos 7/14/30 días según `ultima_entrada`, ofertas puestas a mano solo para ese mensaje, existencias por categoría y el enlace al catálogo). Lógica en `src/lib/mensajeGrupo.js`, pantalla en `src/sections/inventario/MensajeGrupo.jsx`. Las ofertas NO se guardan ni cambian precios (promociones reales siguen sin hacerse).
 - Ideas sin empezar: ocultar productos por producto, precios por volumen y promociones, código de barras, ficha de cliente.
 - Acciones del dueño en Supabase: desactivar “Allow new users to sign up”, activar protección de contraseñas filtradas, 2FA en la cuenta admin.
