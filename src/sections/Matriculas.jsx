@@ -310,6 +310,7 @@ function ImportarCSV({ onListo }) {
   const [progreso, setProgreso] = useState(0)
   const [abierto, setAbierto] = useState(false)
   const [resultado, setResultado] = useState('')
+  const [corte, setCorte] = useState(null)
 
   useEffect(() => {
     if (!abierto) return
@@ -317,9 +318,13 @@ function ImportarCSV({ onListo }) {
       const p = (data || []).find((c) => c.clave === 'precio_matricula')
       setPrecio(p?.valor || '')
     })
+    // Desde la fecha de corte los pagos los crea la recepción; este importador no debe duplicarlos.
+    supabase.rpc('gym_config').then(({ data }) => setCorte(data?.cobros_desde || null))
   }, [abierto])
 
-  const filas = leido?.filas || []
+  const todas = leido?.filas || []
+  const filas = corte ? todas.filter((f) => f.fecha < corte) : todas
+  const omitidas = todas.length - filas.length
   const precioNum = Number(precio) > 0 ? Number(precio) : null
   // Si el archivo no trae monto, cada fila se cobra al precio de abajo.
   const montoDe = (f) => (leido?.traeMonto ? f.monto : f.monto ?? precioNum)
@@ -382,6 +387,12 @@ function ImportarCSV({ onListo }) {
   return (
     <div className="rounded-xl border border-green bg-green-soft p-3 space-y-2">
       <p className="text-xs text-muted">Columnas esperadas: Nombre, Fecha (dd/m/aaaa), Sexo, Entrenador, Phone — y Monto si lo tienes.</p>
+      {corte && (
+        <p className="text-xs rounded-lg bg-yellow-soft text-yellow-ink px-2.5 py-1.5">
+          Desde el {corte.split('-').reverse().join('/')} los cobros los registra la recepción en el panel. Este importador crea pagos,
+          así que solo carga filas anteriores a esa fecha{omitidas > 0 ? ` (se omiten ${omitidas} de este archivo)` : ''}. Para las fechas de MobiDB usa “Importar MobiDB”.
+        </p>
+      )}
       <input type="file" accept=".csv" onChange={elegirArchivo}
         className="w-full text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-green file:text-white file:px-3 file:py-1.5 file:text-xs" />
       {leido && !subiendo && !leido.traeMonto && filas.length > 0 && (

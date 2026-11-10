@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
 
 const ROLES = [
+  { codigo: 'cobrador', nombre: 'Cobrador (recepción)' },
   { codigo: 'operador_plus', nombre: 'Segundo admin' },
   { codigo: 'operador', nombre: 'Gestor' },
   { codigo: 'mensajero', nombre: 'Mensajero' },
