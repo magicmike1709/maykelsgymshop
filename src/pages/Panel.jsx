@@ -16,6 +16,7 @@ const Avisos = lazy(() => import('../sections/Avisos'))
 const Actividad = lazy(() => import('../sections/Actividad'))
 const Fondos = lazy(() => import('../sections/Fondos'))
 const Proveedores = lazy(() => import('../sections/Proveedores'))
+const FechasMobiDB = lazy(() => import('../sections/FechasMobiDB'))
 
 function Cargando() {
   return <p className="text-sm text-muted">Cargando…</p>
@@ -32,7 +33,14 @@ const TABS_BASE = [
   { id: 'avisos', label: 'Avisos' }
 ]
 
+// La recepción (rol cobrador) solo ve el cobro y los avisos.
+const TABS_COBRADOR = [
+  { id: 'cobrar', label: 'Cobrar matrícula' },
+  { id: 'avisos', label: 'Avisos' }
+]
+
 const TABS_ADMIN = [
+  { id: 'fechas', label: 'Importar MobiDB' },
   { id: 'proveedores', label: 'Proveedores' },
   { id: 'equipo', label: 'Equipo' },
   { id: 'cierre', label: 'Cierre' },
@@ -44,7 +52,7 @@ const TABS_ADMIN = [
 // dueño no ve 11 renglones sueltos sino unos pocos bloques.
 const GRUPOS_MENU = [
   { titulo: 'Negocio', ids: ['resumen'] },
-  { titulo: 'Clientes', ids: ['cobrar', 'matriculas', 'avisos'] },
+  { titulo: 'Clientes', ids: ['cobrar', 'matriculas', 'fechas', 'avisos'] },
   { titulo: 'Ventas', ids: ['nevera', 'vitrina', 'inventario'] },
   { titulo: 'Finanzas', ids: ['gastos', 'proveedores'] },
   { titulo: 'Administración', ids: ['equipo', 'cierre', 'fondos', 'actividad'] }
@@ -59,8 +67,12 @@ export default function Panel() {
     supabase.rpc('mi_perfil').then(({ data }) => setPerfil(data))
   }, [])
 
-  const tabs = perfil?.rol === 'admin' ? [...TABS_BASE, ...TABS_ADMIN] : TABS_BASE
+  const tabs = perfil?.rol === 'admin'
+    ? [...TABS_BASE, ...TABS_ADMIN]
+    : perfil?.rol === 'cobrador' ? TABS_COBRADOR : TABS_BASE
   const tabsPorId = Object.fromEntries(tabs.map((t) => [t.id, t]))
+  // Si la pestaña elegida no existe para este rol (la recepción no tiene Resumen), se abre la primera.
+  const tabActual = tabsPorId[tab] ? tab : tabs[0].id
   const grupos = GRUPOS_MENU
     .map((g) => ({ titulo: g.titulo, items: g.ids.map((id) => tabsPorId[id]).filter(Boolean) }))
     .filter((g) => g.items.length > 0)
@@ -89,7 +101,7 @@ export default function Panel() {
               <span className="truncate">Maykelsgym Shop · {perfil?.rol_nombre || '…'}</span>
             </div>
             <h1 className="font-display font-bold uppercase text-2xl leading-tight tracking-tight truncate">
-              {tabs.find((t) => t.id === tab)?.label || 'Panel'}
+              {tabsPorId[tabActual]?.label || 'Panel'}
             </h1>
           </div>
           <button
@@ -101,7 +113,7 @@ export default function Panel() {
         </div>
       </header>
 
-      <main className="px-5 pt-5 pb-10 max-w-md mx-auto">
+      <main className={'px-5 pt-5 pb-10 mx-auto ' + (tabActual === 'cobrar' ? 'max-w-md md:max-w-4xl' : 'max-w-md')}>
         {!perfil && <Cargando />}
         {perfil && perfil.activo === false && (
           <div className="rounded-2xl border border-line bg-surface p-5 space-y-2">
@@ -113,19 +125,20 @@ export default function Panel() {
         )}
         {perfil && perfil.activo !== false && (
           <Suspense fallback={<Cargando />}>
-            {tab === 'resumen' && <Resumen />}
-            {tab === 'cobrar' && <Cobrar perfil={perfil} />}
-            {tab === 'matriculas' && <Matriculas perfil={perfil} />}
-            {tab === 'nevera' && <Nevera perfil={perfil} />}
-            {tab === 'vitrina' && <Vitrina />}
-            {tab === 'inventario' && <Inventario perfil={perfil} />}
-            {tab === 'gastos' && <Gastos perfil={perfil} />}
-            {tab === 'avisos' && <Avisos perfil={perfil} />}
-            {tab === 'proveedores' && perfil.rol === 'admin' && <Proveedores />}
-            {tab === 'equipo' && perfil.rol === 'admin' && <Equipo />}
-            {tab === 'cierre' && perfil.rol === 'admin' && <Cierre />}
-            {tab === 'fondos' && perfil.rol === 'admin' && <Fondos />}
-            {tab === 'actividad' && perfil.rol === 'admin' && <Actividad />}
+            {tabActual === 'resumen' && <Resumen />}
+            {tabActual === 'cobrar' && <Cobrar perfil={perfil} />}
+            {tabActual === 'matriculas' && <Matriculas perfil={perfil} />}
+            {tabActual === 'nevera' && <Nevera perfil={perfil} />}
+            {tabActual === 'vitrina' && <Vitrina />}
+            {tabActual === 'inventario' && <Inventario perfil={perfil} />}
+            {tabActual === 'gastos' && <Gastos perfil={perfil} />}
+            {tabActual === 'avisos' && <Avisos perfil={perfil} />}
+            {tabActual === 'fechas' && perfil.rol === 'admin' && <FechasMobiDB perfil={perfil} />}
+            {tabActual === 'proveedores' && perfil.rol === 'admin' && <Proveedores />}
+            {tabActual === 'equipo' && perfil.rol === 'admin' && <Equipo />}
+            {tabActual === 'cierre' && perfil.rol === 'admin' && <Cierre />}
+            {tabActual === 'fondos' && perfil.rol === 'admin' && <Fondos />}
+            {tabActual === 'actividad' && perfil.rol === 'admin' && <Actividad />}
           </Suspense>
         )}
       </main>
@@ -151,10 +164,10 @@ export default function Panel() {
                   <button
                     key={t.id}
                     onClick={() => elegir(t.id)}
-                    aria-current={tab === t.id ? 'page' : undefined}
+                    aria-current={tabActual === t.id ? 'page' : undefined}
                     className={
                       'w-full text-left px-4 py-3 my-0.5 rounded-xl text-sm ' +
-                      (tab === t.id ? 'font-semibold text-ink bg-sunken' : 'text-ink active:bg-sunken')
+                      (tabActual === t.id ? 'font-semibold text-ink bg-sunken' : 'text-ink active:bg-sunken')
                     }
                   >
                     {t.label}

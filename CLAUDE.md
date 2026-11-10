@@ -24,7 +24,7 @@ Panel de control del negocio de Maykel's Gym (La Habana): matrículas, nevera, v
 ## Reglas de datos y seguridad (importante)
 - **La app nunca lee ni escribe tablas directamente.** Todo pasa por funciones SQL (`supabase.rpc`) que comprueban permisos. Las tablas no dan privilegios a `anon` ni a `authenticated`, tampoco las futuras.
 - RLS activo en todas las tablas. Toda tabla o función nueva debe seguir el mismo patrón.
-- Roles: `admin`, `operador_plus`, `operador`, `lectura`, `mensajero`.
+- Roles: `admin`, `operador_plus`, `operador`, `lectura`, `mensajero`, `cobrador` (recepción del gym: solo ve Cobrar y Avisos).
   - Ajustar stock y registrar entradas: admin y operador_plus.
   - Quitar y reactivar productos: solo admin (baja suave; quitar no pone el stock en cero).
 - Quien se registra solo queda **inactivo**; `usuario_crear` (Equipo) crea cuentas activas. Las listas exigen usuario activo.
@@ -33,10 +33,20 @@ Panel de control del negocio de Maykel's Gym (La Habana): matrículas, nevera, v
 - Cuenta con proveedores (solo admin, pantalla Proveedores): lo que se debe = entradas de inventario con nombre de proveedor (cantidad × costo) − pagos en `proveedor_pagos`. El proveedor de VitOBest se llama `VitoBeast`; la mercancía se carga con “Entró mercancía”.
 
 ## Migraciones
-1. Crear `supabase/migrations/NNNN_descripcion.sql` con el siguiente número libre (la última es `0041_inventario_ultima_entrada.sql`).
+1. Crear `supabase/migrations/NNNN_descripcion.sql` con el siguiente número libre (la última es `0045_gym_funciones_search_path.sql`).
 2. Aplicarla al proyecto real con `apply_migration` (MCP de Supabase) y guardar el mismo archivo en el repo.
 3. Antes: comprobaciones previas sobre los datos existentes. Después: simular cada rol dentro de la base y comprobar que lo no permitido falla.
 4. Revisar `get_advisors` (seguridad) tras cambiar el esquema.
+
+## Cobros del gym (migraciones 0042 a 0045)
+- Permisos nuevos: `gym.cobrar` (admin y cobrador), `gym.anular` y `gym.configurar` (solo admin). Todo el cobro pasa por funciones `gym_*`.
+- Precio de la matrícula en USD (`configuracion.precio_matricula_usd`) y **tasa de cobro** con "vigente desde" (`tasas_cobro`, la fija el dueño; puede ir atrasada respecto al mercado). Monto sugerido = precio USD × tasa.
+- Un cobro (`cliente_visitas`) guarda `monto` (total en CUP), `efectivo_cup`, `transferencia_cup`, `efectivo_usd`, `tasa`, caso social y quién cobró. Los pagos viejos tienen esas columnas vacías y se leen como "todo efectivo CUP". Anular saca el cobro de `cliente_visitas` y lo guarda en `cobros_anulados` (todo lo demás deja de contarlo solo).
+- **Dos fechas por cliente**: la fecha de cobro (la pone quien cobra) y la fecha oficial (`clientes_gym.fecha_oficial`, origen `mobidb`, `cobro` o `manual`). El vencimiento cuenta desde la oficial; el cobro la deja provisional hasta que llegue MobiDB.
+- `gym_fechas_importar` (pantalla "Importar MobiDB") solo actualiza fechas oficiales, nunca crea pagos. Regla de 5 días: si MobiDB está a ≤ 5 días del cobro se queda la de MobiDB; si está más vieja se queda la del cobro; si está más nueva se queda la de MobiDB y se avisa; lo editado a mano no se pisa.
+- `configuracion.gym_cobros_desde` es la fecha de corte: desde ahí el importador antiguo de Matrículas (que crea pagos) no carga filas, para no contar el dinero doble.
+- `caja_esperada_dia` (Cierre) cuenta del gym solo el efectivo en CUP; los dólares y las transferencias se cuentan en el cuadre del gym (`gym_caja_contar`).
+- Pendiente: fotos de clientes y modo sin conexión (iPad de la recepción); plan en la conversación de diseño.
 
 ## Cómo probar pantallas
 Se prueban con Playwright (ya instalado en el entorno), simulando las llamadas a Supabase con datos reales. Dos trampas conocidas:
