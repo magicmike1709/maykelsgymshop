@@ -6,6 +6,7 @@ import { supabase } from '../supabaseClient'
 const Resumen = lazy(() => import('../sections/Resumen'))
 const Cobrar = lazy(() => import('../sections/Cobrar'))
 const Matriculas = lazy(() => import('../sections/Matriculas'))
+const Recepcion = lazy(() => import('../sections/Recepcion'))
 const Nevera = lazy(() => import('../sections/Nevera'))
 const Vitrina = lazy(() => import('../sections/Vitrina'))
 const Inventario = lazy(() => import('../sections/Inventario'))
@@ -32,6 +33,10 @@ const TABS_BASE = [
   { id: 'avisos', label: 'Avisos' }
 ]
 
+// Recepción: a quién toca escribirle. La ven el dueño y quien tenga el rol Cobrador.
+const TAB_RECEPCION = { id: 'recepcion', label: 'Recepción' }
+const ROLES_RECEPCION = ['admin', 'cobrador']
+
 const TABS_ADMIN = [
   { id: 'proveedores', label: 'Proveedores' },
   { id: 'equipo', label: 'Equipo' },
@@ -44,7 +49,7 @@ const TABS_ADMIN = [
 // dueño no ve 11 renglones sueltos sino unos pocos bloques.
 const GRUPOS_MENU = [
   { titulo: 'Negocio', ids: ['resumen'] },
-  { titulo: 'Clientes', ids: ['cobrar', 'matriculas', 'avisos'] },
+  { titulo: 'Clientes', ids: ['recepcion', 'cobrar', 'matriculas', 'avisos'] },
   { titulo: 'Ventas', ids: ['nevera', 'vitrina', 'inventario'] },
   { titulo: 'Finanzas', ids: ['gastos', 'proveedores'] },
   { titulo: 'Administración', ids: ['equipo', 'cierre', 'fondos', 'actividad'] }
@@ -59,7 +64,11 @@ export default function Panel() {
     supabase.rpc('mi_perfil').then(({ data }) => setPerfil(data))
   }, [])
 
-  const tabs = perfil?.rol === 'admin' ? [...TABS_BASE, ...TABS_ADMIN] : TABS_BASE
+  const tabs = [
+    ...TABS_BASE,
+    ...(ROLES_RECEPCION.includes(perfil?.rol) ? [TAB_RECEPCION] : []),
+    ...(perfil?.rol === 'admin' ? TABS_ADMIN : [])
+  ]
   const tabsPorId = Object.fromEntries(tabs.map((t) => [t.id, t]))
   const grupos = GRUPOS_MENU
     .map((g) => ({ titulo: g.titulo, items: g.ids.map((id) => tabsPorId[id]).filter(Boolean) }))
@@ -115,7 +124,8 @@ export default function Panel() {
           <Suspense fallback={<Cargando />}>
             {tab === 'resumen' && <Resumen />}
             {tab === 'cobrar' && <Cobrar perfil={perfil} />}
-            {tab === 'matriculas' && <Matriculas perfil={perfil} />}
+            {tab === 'matriculas' && <Matriculas perfil={perfil} onIr={elegir} />}
+            {tab === 'recepcion' && ROLES_RECEPCION.includes(perfil.rol) && <Recepcion />}
             {tab === 'nevera' && <Nevera perfil={perfil} />}
             {tab === 'vitrina' && <Vitrina />}
             {tab === 'inventario' && <Inventario perfil={perfil} />}

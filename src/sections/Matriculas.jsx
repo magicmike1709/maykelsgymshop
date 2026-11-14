@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
 import { fechaLocal as hoy, fechaDiaMes, fechaDiaMesAnio } from '../lib/fecha'
 import { n } from '../lib/formato'
+import { telefonoWa } from '../lib/negocio'
+import Tablero from './matriculas/Tablero'
 
 function mesLabel(mes) {
   const [y, m] = mes.split('-').map(Number)
@@ -19,8 +21,9 @@ function agruparPorEntrenador(lista) {
   return Object.entries(grupos).sort((a, b) => b[1].length - a[1].length)
 }
 
-export default function Matriculas({ perfil }) {
-  const [modo, setModo] = useState('resumen') // resumen | clientes
+export default function Matriculas({ perfil, onIr }) {
+  const esAdmin = perfil?.rol === 'admin'
+  const [modo, setModo] = useState(esAdmin ? 'tablero' : 'resumen') // tablero (solo dueño) | resumen | clientes
   const [resumen, setResumen] = useState(null)
   const [fecha, setFecha] = useState(hoy())
   const [pagos, setPagos] = useState('')
@@ -66,6 +69,12 @@ export default function Matriculas({ perfil }) {
   return (
     <div className="space-y-5">
       <div className="flex gap-1.5">
+        {esAdmin && (
+          <button onClick={() => setModo('tablero')}
+            className={'flex-1 py-2 rounded-full text-xs font-semibold border ' + (modo === 'tablero' ? 'bg-green text-white border-green' : 'border-line text-muted')}>
+            Tablero
+          </button>
+        )}
         <button onClick={() => setModo('resumen')}
           className={'flex-1 py-2 rounded-full text-xs font-semibold border ' + (modo === 'resumen' ? 'bg-green text-white border-green' : 'border-line text-muted')}>
           Resumen
@@ -76,7 +85,9 @@ export default function Matriculas({ perfil }) {
         </button>
       </div>
 
-      {modo === 'clientes' ? (
+      {modo === 'tablero' && esAdmin ? (
+        <Tablero onIr={onIr} />
+      ) : modo === 'clientes' ? (
         <ClientesGym perfil={perfil} />
       ) : (
       <>
@@ -708,12 +719,6 @@ function ClientesGym({ perfil }) {
       )}
     </div>
   )
-}
-
-function telefonoWa(telefono) {
-  const digitos = (telefono || '').replace(/\D/g, '')
-  if (!digitos) return null
-  return digitos.startsWith('53') ? digitos : '53' + digitos
 }
 
 const RANGOS_DIA = [

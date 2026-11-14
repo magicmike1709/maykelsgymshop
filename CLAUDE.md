@@ -33,7 +33,7 @@ Panel de control del negocio de Maykel's Gym (La Habana): matrículas, nevera, v
 - Cuenta con proveedores (solo admin, pantalla Proveedores): lo que se debe = entradas de inventario con nombre de proveedor (cantidad × costo) − pagos en `proveedor_pagos`. El proveedor de VitOBest se llama `VitoBeast`; la mercancía se carga con “Entró mercancía”.
 
 ## Migraciones
-1. Crear `supabase/migrations/NNNN_descripcion.sql` con el siguiente número libre (la última es `0041_inventario_ultima_entrada.sql`).
+1. Crear `supabase/migrations/NNNN_descripcion.sql` con el siguiente número libre (la última es `0047_clientes_tablero_y_avisos.sql`; 0042–0046 se aplicaron a la base desde otra sesión —cobros del gym y publicaciones— y sus archivos no están en este repo).
 2. Aplicarla al proyecto real con `apply_migration` (MCP de Supabase) y guardar el mismo archivo en el repo.
 3. Antes: comprobaciones previas sobre los datos existentes. Después: simular cada rol dentro de la base y comprobar que lo no permitido falla.
 4. Revisar `get_advisors` (seguridad) tras cambiar el esquema.
@@ -53,5 +53,6 @@ Se prueban con Playwright (ya instalado en el entorno), simulando las llamadas a
 - Datos reales (8-nov-2026): 110 productos, 61 unidades de VitoBeast en stock, 77 productos sin foto. Las ventas de VitoBeast se registran descontando stock y los pagos al proveedor se anotan en Proveedores.
 - Catálogo público (`/catalogo`, sin login): buscador, categorías, pedido de varios productos por WhatsApp (número en `src/lib/negocio.js`). Solo muestra productos con stock > 0 (`catalogo_publico`).
 - Inventario → “Mensaje para el grupo”: arma el texto para el grupo de WhatsApp (novedades = mercancía llegada en los últimos 7/14/30 días según `ultima_entrada`, ofertas puestas a mano solo para ese mensaje, existencias por categoría y el enlace al catálogo). Lógica en `src/lib/mensajeGrupo.js`, pantalla en `src/sections/inventario/MensajeGrupo.jsx`. Las ofertas NO se guardan ni cambian precios (promociones reales siguen sin hacerse).
+- Clientes del gym (0047): **Matrículas → Tablero** (solo admin, `clientes_tablero`): activos, dinero por recuperar, mes contra mes, renovación, entrenadores. **Recepción** (`src/sections/Recepcion.jsx`, roles admin y cobrador, permiso `clientes.avisar`): buscar el estado de un cliente y lista de a quién escribirle, con marca de “ya avisado” (`cliente_avisos`). Recepción no cobra ni muestra dinero: el dueño decidió que el cobro va aparte. Falta que el dueño diga qué usuario es la hostess para darle el rol Cobrador.
 - Ideas sin empezar: ocultar productos por producto, precios por volumen y promociones, código de barras, ficha de cliente.
 - Acciones del dueño en Supabase: desactivar “Allow new users to sign up”, activar protección de contraseñas filtradas, 2FA en la cuenta admin.
