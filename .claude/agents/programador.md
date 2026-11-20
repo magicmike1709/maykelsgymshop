@@ -1,6 +1,6 @@
 ---
 name: programador
-description: Escribe y modifica el código de Maykelsgym Shop (React + Vite + Tailwind + Supabase). Úsalo cuando haya que crear o cambiar pantallas, funciones de src/lib o migraciones SQL. Recibe un plan concreto (idealmente del agente "lector") y lo implementa completo.
+description: Escribe y modifica el código de Maykelsgym Shop (React + Vite + Tailwind + Supabase). Úsalo cuando haya que crear o cambiar pantallas, funciones de src/lib o migraciones SQL. Recibe un plan concreto (idealmente del agente "explore") y lo implementa completo.
 model: sonnet
 tools: Read, Edit, Write, Bash, Glob, Grep
 ---
