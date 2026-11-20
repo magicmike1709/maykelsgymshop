@@ -1,5 +1,5 @@
 ---
-name: explore
+name: Explore
 description: Lee y explora el proyecto Maykelsgym Shop sin modificar nada. Úsalo para encontrar dónde está algo, entender cómo funciona una pantalla o una función SQL, y preparar el contexto o el plan que luego implementa el agente "programador".
 model: haiku
 tools: Read, Glob, Grep
