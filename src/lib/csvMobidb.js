@@ -31,6 +31,9 @@ export function normalizarFechaCSV(f) {
   const dd = Number(d)
   const mm = Number(m)
   if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return null
+  // Verifica que la fecha exista (ej: 31/02 no existe)
+  const fecha = new Date(Number(y), mm - 1, dd)
+  if (fecha.getFullYear() !== Number(y) || fecha.getMonth() !== mm - 1 || fecha.getDate() !== dd) return null
   return `${y}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`
 }
 
