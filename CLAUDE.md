@@ -46,13 +46,13 @@ Se prueban con Playwright (ya instalado en el entorno), simulando las llamadas a
 ## Flujo de trabajo
 - Rama de trabajo asignada por sesión; no hacer push a otra. Si el PR anterior ya se fusionó, partir del `main` actualizado.
 - No crear PR salvo que se pida.
-- `main` incluye ya: inventario del día a día (0037), endurecimiento de seguridad (0038), descripción de productos (0039) y cuenta con proveedores (0040).
+- `main` incluye ya: inventario del día a día (0037), endurecimiento de seguridad (0038), descripción de productos (0039), cuenta con proveedores (0040) y tablero de clientes + Recepción (0047).
 
 ## Pendientes conocidos
 - Ventas de los últimos 30 días figuran en 0: “Qué comprar” y “Más vendidos” no ordenan bien. Confirmar cómo se registran las ventas.
 - Datos reales (8-nov-2026): 110 productos, 61 unidades de VitoBeast en stock, 77 productos sin foto. Las ventas de VitoBeast se registran descontando stock y los pagos al proveedor se anotan en Proveedores.
 - Catálogo público (`/catalogo`, sin login): buscador, categorías, pedido de varios productos por WhatsApp (número en `src/lib/negocio.js`). Solo muestra productos con stock > 0 (`catalogo_publico`).
 - Inventario → “Mensaje para el grupo”: arma el texto para el grupo de WhatsApp (novedades = mercancía llegada en los últimos 7/14/30 días según `ultima_entrada`, ofertas puestas a mano solo para ese mensaje, existencias por categoría y el enlace al catálogo). Lógica en `src/lib/mensajeGrupo.js`, pantalla en `src/sections/inventario/MensajeGrupo.jsx`. Las ofertas NO se guardan ni cambian precios (promociones reales siguen sin hacerse).
-- Clientes del gym (0047): **Matrículas → Tablero** (solo admin, `clientes_tablero`): activos, dinero por recuperar, mes contra mes, renovación, entrenadores. **Recepción** (`src/sections/Recepcion.jsx`, roles admin y cobrador, permiso `clientes.avisar`): buscar el estado de un cliente y lista de a quién escribirle, con marca de “ya avisado” (`cliente_avisos`). Recepción no cobra ni muestra dinero: el dueño decidió que el cobro va aparte. Falta que el dueño diga qué usuario es la hostess para darle el rol Cobrador.
+- Clientes del gym (0047): **Matrículas → Tablero** (solo admin, `clientes_tablero`): activos, dinero por recuperar, mes contra mes, renovación, entrenadores. **Recepción** (`src/sections/Recepcion.jsx`, roles admin y cobrador, permiso `clientes.avisar`): buscar el estado de un cliente y lista de a quién escribirle, con marca de “ya avisado” (`cliente_avisos`). Recepción no cobra ni muestra dinero: el dueño decidió que el cobro va aparte. La hostess usará una cuenta con rol Cobrador que el dueño crea en Equipo (en producción desde el 21-nov-2026).
 - Ideas sin empezar: ocultar productos por producto, precios por volumen y promociones, código de barras, ficha de cliente.
 - Acciones del dueño en Supabase: desactivar “Allow new users to sign up”, activar protección de contraseñas filtradas, 2FA en la cuenta admin.
