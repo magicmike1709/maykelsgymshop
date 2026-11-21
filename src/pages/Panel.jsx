@@ -6,6 +6,7 @@ import { supabase } from '../supabaseClient'
 const Resumen = lazy(() => import('../sections/Resumen'))
 const Cobrar = lazy(() => import('../sections/Cobrar'))
 const Matriculas = lazy(() => import('../sections/Matriculas'))
+const Recepcion = lazy(() => import('../sections/Recepcion'))
 const Nevera = lazy(() => import('../sections/Nevera'))
 const Vitrina = lazy(() => import('../sections/Vitrina'))
 const Inventario = lazy(() => import('../sections/Inventario'))
@@ -33,11 +34,9 @@ const TABS_BASE = [
   { id: 'avisos', label: 'Avisos' }
 ]
 
-// La recepción (rol cobrador) solo ve el cobro y los avisos.
-const TABS_COBRADOR = [
-  { id: 'cobrar', label: 'Cobrar matrícula' },
-  { id: 'avisos', label: 'Avisos' }
-]
+// Recepción: a quién toca escribirle. La ven el dueño y quien tenga el rol Cobrador.
+const TAB_RECEPCION = { id: 'recepcion', label: 'Recepción' }
+const ROLES_RECEPCION = ['admin', 'cobrador']
 
 const TABS_ADMIN = [
   { id: 'fechas', label: 'Importar MobiDB' },
@@ -52,10 +51,10 @@ const TABS_ADMIN = [
 // dueño no ve 11 renglones sueltos sino unos pocos bloques.
 const GRUPOS_MENU = [
   { titulo: 'Negocio', ids: ['resumen'] },
-  { titulo: 'Clientes', ids: ['cobrar', 'matriculas', 'fechas', 'avisos'] },
+  { titulo: 'Clientes', ids: ['recepcion', 'cobrar', 'matriculas', 'avisos'] },
   { titulo: 'Ventas', ids: ['nevera', 'vitrina', 'inventario'] },
   { titulo: 'Finanzas', ids: ['gastos', 'proveedores'] },
-  { titulo: 'Administración', ids: ['equipo', 'cierre', 'fondos', 'actividad'] }
+  { titulo: 'Administración', ids: ['fechas', 'equipo', 'cierre', 'fondos', 'actividad'] }
 ]
 
 export default function Panel() {
@@ -67,12 +66,14 @@ export default function Panel() {
     supabase.rpc('mi_perfil').then(({ data }) => setPerfil(data))
   }, [])
 
-  const tabs = perfil?.rol === 'admin'
-    ? [...TABS_BASE, ...TABS_ADMIN]
-    : perfil?.rol === 'cobrador' ? TABS_COBRADOR : TABS_BASE
+  const tabs = [
+    ...TABS_BASE,
+    ...(ROLES_RECEPCION.includes(perfil?.rol) ? [TAB_RECEPCION] : []),
+    ...(perfil?.rol === 'admin' ? TABS_ADMIN : [])
+  ]
   const tabsPorId = Object.fromEntries(tabs.map((t) => [t.id, t]))
-  // Si la pestaña elegida no existe para este rol (la recepción no tiene Resumen), se abre la primera.
-  const tabActual = tabsPorId[tab] ? tab : tabs[0].id
+  // Si la pestaña elegida no existe para este rol, se abre la primera.
+  const tabActual = tabsPorId[tab] ? tab : tabs[0]?.id
   const grupos = GRUPOS_MENU
     .map((g) => ({ titulo: g.titulo, items: g.ids.map((id) => tabsPorId[id]).filter(Boolean) }))
     .filter((g) => g.items.length > 0)
@@ -127,7 +128,8 @@ export default function Panel() {
           <Suspense fallback={<Cargando />}>
             {tabActual === 'resumen' && <Resumen />}
             {tabActual === 'cobrar' && <Cobrar perfil={perfil} />}
-            {tabActual === 'matriculas' && <Matriculas perfil={perfil} />}
+            {tabActual === 'matriculas' && <Matriculas perfil={perfil} onIr={elegir} />}
+            {tabActual === 'recepcion' && ROLES_RECEPCION.includes(perfil.rol) && <Recepcion />}
             {tabActual === 'nevera' && <Nevera perfil={perfil} />}
             {tabActual === 'vitrina' && <Vitrina />}
             {tabActual === 'inventario' && <Inventario perfil={perfil} />}
