@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient'
 const ROLES = [
   { codigo: 'operador_plus', nombre: 'Segundo admin' },
   { codigo: 'operador', nombre: 'Gestor' },
+  { codigo: 'cobrador', nombre: 'Cobrador (recepción)' },
   { codigo: 'mensajero', nombre: 'Mensajero' },
   { codigo: 'lectura', nombre: 'Solo lectura' }
 ]
